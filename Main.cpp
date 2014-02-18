@@ -1,5 +1,6 @@
 #include "Framework.h"
 #include "Shader.h"
+#include "VEC3F.h"
 
 #define MODEL_PATH "models/teapot.3ds"
 
@@ -29,9 +30,26 @@ void loadAssets();
 void handleInput();
 void renderFrame();
 
+////////////////////////////////////////////////////////////////////////////////////////////
+//static GLfloat eye_pos[3], eye_direction[3];
+VEC3F eye_pos, eye_direction, eye_up;
+VEC3F mouse_pos(0.0f, 0.0f, 0.0f);
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+void initEye()
+{
+    VEC3F ref_point(0,0.0);
+    eye_pos.x = 0.0f; eye_pos.y = 0.0f; eye_pos.z = 8.0f;
+    eye_up.x = 0.0f; eye_up.y = 1.f; eye_up.z = 0;
+    eye_direction = ref_point - eye_pos;
+    eye_direction.normalize();
+}
+
 int main(int argc, char** argv) {
 
     initOpenGL();
+    initEye();
     loadAssets();
 
     // Put your game loop here (i.e., render with OpenGL, update animation)
@@ -172,6 +190,33 @@ void handleInput() {
             // transformation and viewport
             glViewport(0, 0, evt.Size.Width, evt.Size.Height);
             break;
+        case sf::Event::KeyPressed:
+            if( evt.Key.Code == sf::Key::Escape ) {
+                window.Close();
+                break;
+            } else if( evt.Key.Code == sf::Key::W ) {
+                //Move camera forward
+                eye_pos += eye_direction*0.2f;
+            } else if( evt.Key.Code == sf::Key::S ) {
+                eye_pos -= eye_direction*0.2f;
+            } else if( evt.Key.Code == sf::Key::A ) {
+                VEC3F l = eye_up^eye_direction;
+                l.normalize();
+                eye_pos += l*0.2f;
+            }else if( evt.Key.Code == sf::Key::D ) {
+                VEC3F r = eye_direction^eye_up;
+                r.normalize();
+                eye_pos += r*0.2f;
+            }
+            break;
+        case sf::Event::MouseMoved:
+            {
+                VECT3F new_mouse_pos( Event.MouseMove.X, Event.MouseMove.Y, 0.0f); 
+                float dx = new_mouse_pos.x - mouse_pos.x;
+                float dy = new_mouse_pos.y - mouse_pos.y;
+                mouse_pos = new_mouse_pos;
+            }
+            break;
         default: 
             break;
         }
@@ -241,7 +286,7 @@ void renderFrame() {
     // TODO: ADD YOUR RENDERING CODE HERE.  You may use as many .cpp files 
     // in this assignment as you wish.
     //////////////////////////////////////////////////////////////////////////
-    float tmp;
+    //float tmp;
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_LIGHTING);
@@ -250,15 +295,16 @@ void renderFrame() {
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0.f, 0.f,8.f,0.f,0.f,0.0f,0.f,1.f,0.f);
-    //gluLookAt(0.f, 2.f,3.f,0.f,0.f,0.f,0.f,1.f,-1.f);
-
+    //gluLookAt(0.f, 0.f,8.f,0.f,0.f,0.0f,0.f,1.f,0.f);
+    gluLookAt(eye_pos.x, eye_pos.y, eye_pos.z,
+              eye_pos.x+eye_direction.x, eye_pos.y+eye_direction.y, eye_pos.z+eye_direction.z,
+              eye_up.x, eye_up.y, eye_up.z );
 
     // scale the whole asset to fit into our view frustum 
-	tmp = scene_max.x-scene_min.x;
-	tmp = aisgl_max(scene_max.y - scene_min.y,tmp);
-	tmp = aisgl_max(scene_max.z - scene_min.z,tmp);
-	tmp = 1.f / tmp;
+	//tmp = scene_max.x-scene_min.x;
+	//tmp = aisgl_max(scene_max.y - scene_min.y,tmp);
+	//tmp = aisgl_max(scene_max.z - scene_min.z,tmp);
+	//tmp = 1.f / tmp;
 	//glScalef(tmp, tmp, tmp);
 
     //center the model
