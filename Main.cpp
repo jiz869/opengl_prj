@@ -1,8 +1,9 @@
+#include <cmath>
 #include "Framework.h"
 #include "Shader.h"
-#include "VEC3F.h"
+#include "VEC3.h"
 
-#define MODEL_PATH "models/teapot.3ds"
+#define MODEL_PATH "models/cathedral.3ds"
 
 
 // Note: See the SMFL documentation for info on setting up fullscreen mode
@@ -34,12 +35,16 @@ void renderFrame();
 //static GLfloat eye_pos[3], eye_direction[3];
 VEC3F eye_pos, eye_direction, eye_up;
 VEC3F mouse_pos(0.0f, 0.0f, 0.0f);
+VEC3F eye_rot(0.0f, 1.0f, 0.0f);
+float eye_rot_degree=0.0f;
+VEC3F eye_roty(-1.0f, 0.0f, 0.0f);
+float eye_rot_degreey=0.0f;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
-    VEC3F ref_point(0,0.0);
+    VEC3F ref_point(0.0f, 0.0f, 0.0f);
     eye_pos.x = 0.0f; eye_pos.y = 0.0f; eye_pos.z = 8.0f;
     eye_up.x = 0.0f; eye_up.y = 1.f; eye_up.z = 0;
     eye_direction = ref_point - eye_pos;
@@ -196,25 +201,43 @@ void handleInput() {
                 break;
             } else if( evt.Key.Code == sf::Key::W ) {
                 //Move camera forward
-                eye_pos += eye_direction*0.2f;
+                eye_pos += eye_direction*0.5f;
             } else if( evt.Key.Code == sf::Key::S ) {
-                eye_pos -= eye_direction*0.2f;
+                eye_pos -= eye_direction*0.5f;
             } else if( evt.Key.Code == sf::Key::A ) {
                 VEC3F l = eye_up^eye_direction;
                 l.normalize();
-                eye_pos += l*0.2f;
+                eye_pos += l*0.5f;
             }else if( evt.Key.Code == sf::Key::D ) {
                 VEC3F r = eye_direction^eye_up;
                 r.normalize();
-                eye_pos += r*0.2f;
+                eye_pos += r*0.5f;
             }
             break;
         case sf::Event::MouseMoved:
             {
-                VECT3F new_mouse_pos( Event.MouseMove.X, Event.MouseMove.Y, 0.0f); 
+                VEC3F new_mouse_pos( evt.MouseMove.X, evt.MouseMove.Y, 0.0f);
                 float dx = new_mouse_pos.x - mouse_pos.x;
                 float dy = new_mouse_pos.y - mouse_pos.y;
                 mouse_pos = new_mouse_pos;
+                
+                if( abs(dx) > abs(dy) ) {
+                    eye_rot = eye_up;
+                    if( dx > 0.1 ) {
+                        eye_rot_degree += 1.0;
+                    }else if( dx < 0.01 ) {
+                        eye_rot_degree -= 1.0;
+                    }else {
+                    }
+                }else{
+                    eye_roty = eye_up^eye_direction;
+                    if( dy > 0.1 ) {
+                        eye_rot_degreey -= 1.0;
+                    }else if( dy < 0.01 ) {
+                        eye_rot_degreey += 1.0;
+                    }else{
+                    }
+                }
             }
             break;
         default: 
@@ -309,8 +332,10 @@ void renderFrame() {
 
     //center the model
 
+    glRotatef(eye_rot_degreey, eye_roty.x, eye_roty.y, eye_roty.z);
+    glRotatef(eye_rot_degree, eye_rot.x, eye_rot.y, eye_rot.z);
     glRotatef(90, 0.0f, 1.0f, 0.0f);
-    glRotatef(90, 1.0f, 0.0f, 0.0f);
+    //glRotatef(90, 1.0f, 0.0f, 0.0f);
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
     renderNode(scene, scene->mRootNode);
 
