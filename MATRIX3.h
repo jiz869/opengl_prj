@@ -1,7 +1,7 @@
 #ifndef _MAT3_H_
 #define _MAT3_H_
 
-#include <VEC3.h>
+#include "VEC3.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
