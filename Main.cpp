@@ -221,7 +221,8 @@ void handleInput() {
                 float dy = new_mouse_pos.y - mouse_pos.y;
                 mouse_pos = new_mouse_pos;
                 
-                if( abs(dx) > abs(dy) ) {
+                //if( abs(dx) > abs(dy) ) {
+                    /*
                     eye_rot = eye_up;
                     if( dx > 0.1 ) {
                         eye_rot_degree += 1.0;
@@ -229,7 +230,20 @@ void handleInput() {
                         eye_rot_degree -= 1.0;
                     }else {
                     }
-                }else{
+                    */
+                    VEC3F e_target = eye_pos + eye_direction;
+                    eye_roty = eye_up^eye_direction;
+                    eye_roty.normalize();
+                    if( dx > 2 ) {
+                        e_target -= eye_roty*0.01f;
+                    }else if( dx < -2 ) {
+                        e_target += eye_roty*0.01f;
+                    }
+                    eye_direction = e_target - eye_pos;
+                    eye_direction.normalize();
+                    
+               // }else{
+                    /*
                     eye_roty = eye_up^eye_direction;
                     if( dy > 0.1 ) {
                         eye_rot_degreey -= 1.0;
@@ -237,7 +251,20 @@ void handleInput() {
                         eye_rot_degreey += 1.0;
                     }else{
                     }
-                }
+                    */
+                    eye_roty = eye_up^eye_direction;
+                    //VEC3F e_target = eye_pos + eye_direction;
+                    e_target = eye_pos + eye_direction;
+                    if( dy > 2 ) {
+                        e_target -= eye_up*0.01f;
+                    }else if( dy < -2 ) {
+                        e_target += eye_up*0.01f;
+                    }
+                        eye_direction = e_target - eye_pos;
+                        eye_direction.normalize();
+                        eye_up = eye_direction^eye_roty;
+                        eye_up.normalize();
+                //}
             }
             break;
         default: 
@@ -246,6 +273,85 @@ void handleInput() {
     }
 }
 
+void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
+{
+    struct aiMatrix4x4 m = nd->mTransformation;
+    unsigned int i;
+    unsigned int f;
+    unsigned int v;
+
+    //update transform
+    aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
+    glPushMatrix();
+    glMultMatrixf((float*)&m);
+
+    //draw this node
+    for(i=0; i < nd->mNumMeshes; ++i) {
+        const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
+        if( mesh->HasNormals() ) {
+            glEnable(GL_LIGHTING);
+        }else{
+            glDisable(GL_LIGHTING);
+        }
+
+        //prepare vertices buffer
+        float *vertices = (float*)malloc(3*3*sizeof(float)*mesh->mNumFaces);
+        float *normals = (float*)malloc(3*3*sizeof(float)*mesh->mNumFaces);
+        int vi=0;
+        for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
+            const struct aiFace *face = &mesh->mFaces[f];
+            //for(v=0; v < face->mNumIndices; ++v) {
+            for(v=0; v < 3; ++v) {
+                int index = face->mIndices[v];
+                if(mesh->mNormals != NULL) {
+                }
+
+                //copy vetex
+                vertices[vi] = mesh->mVertices[index].x;
+                //vi++;
+                vertices[vi] = mesh->mVertices[index].y;
+                //vi++;
+                vertices[vi] = mesh->mVertices[index].z;
+                //vi++;
+            }
+        }
+        //glEnableClientState(GL_VERTEX_ARRAY);
+        free(vertices);
+        free(normals);
+
+        for(f=0; f < mesh->mNumFaces; ++f) {
+            const struct aiFace *face = &mesh->mFaces[f];
+            //GLenum face_mode;
+
+            /*
+            switch(face->mNumIndices) {
+                case 1: face_mode = GL_POINTS; break;
+                case 2: face_mode = GL_LINES; break;
+                case 3: face_mode = GL_TRIANGLES; break;
+            }
+            */
+            glBegin(GL_TRIANGLES);
+            for(v=0; v < face->mNumIndices; ++v) {
+                int index = face->mIndices[v];
+                if(mesh->mNormals != NULL) {
+                    glNormal3fv(&mesh->mNormals[index].x);
+                }
+                glVertex3fv(&mesh->mVertices[index].x);
+            }
+
+            glEnd();
+
+        }
+    }
+
+    //draw all children
+    unsigned int n;
+    for(n=0; n < nd->mNumChildren; ++n) {
+        renderNode2( sc, nd->mChildren[n]); 
+    }
+
+    glPopMatrix();
+}
 
 void renderNode(const struct aiScene *sc, const struct aiNode *nd)
 {
@@ -300,7 +406,6 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
     }
 
     glPopMatrix();
-
 }
 
 
@@ -332,13 +437,15 @@ void renderFrame() {
 
     //center the model
 
-    glRotatef(eye_rot_degreey, eye_roty.x, eye_roty.y, eye_roty.z);
-    glRotatef(eye_rot_degree, eye_rot.x, eye_rot.y, eye_rot.z);
+    //glRotatef(eye_rot_degreey, eye_roty.x, eye_roty.y, eye_roty.z);
+    //glRotatef(eye_rot_degree, eye_rot.x, eye_rot.y, eye_rot.z);
     glRotatef(90, 0.0f, 1.0f, 0.0f);
     //glRotatef(90, 1.0f, 0.0f, 0.0f);
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
-    renderNode(scene, scene->mRootNode);
-
+    
+    //try various render methods
+    //renderNode(scene, scene->mRootNode);
+    renderNode2(scene, scene->mRootNode);
 }
 
 
