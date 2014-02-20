@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include "Framework.h"
 #include "Shader.h"
 #include "VEC3.h"
@@ -41,6 +42,7 @@ VEC3F eye_roty(-1.0f, 0.0f, 0.0f);
 float eye_rot_degreey=0.0f;
 
 
+bool show_error = true;
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
@@ -145,12 +147,15 @@ void get_bounding_box (struct aiVector3D* min, struct aiVector3D* max)
 	get_bounding_box_for_node(scene->mRootNode,min,max,&trafo);
 }
 
+//#define AI_CONFIG_PP_SBP_REMOVE (aiPrimitiveType_POINTS | aiPrimitiveType_LINES)
 void loadAssets() {
     // Read in an asset file, and do some post-processing.  There is much 
     // more you can do with this asset loader, including load textures.
     // More info is here:
     // http://assimp.sourceforge.net/lib_html/usage.html
+    importer.SetPropertyInteger( AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_LINE|aiPrimitiveType_POINT );
     scene = importer.ReadFile(MODEL_PATH,  
+        aiProcess_SortByPType |
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_JoinIdenticalVertices |
@@ -171,9 +176,6 @@ void loadAssets() {
     // TODO: LOAD YOUR SHADERS/TEXTURES
     //////////////////////////////////////////////////////////////////////////
 }
-
-
-
 
 void handleInput() {
     //////////////////////////////////////////////////////////////////////////
@@ -235,9 +237,9 @@ void handleInput() {
                     eye_roty = eye_up^eye_direction;
                     eye_roty.normalize();
                     if( dx > 2 ) {
-                        e_target -= eye_roty*0.01f;
+                        e_target -= eye_roty*0.05f;
                     }else if( dx < -2 ) {
-                        e_target += eye_roty*0.01f;
+                        e_target += eye_roty*0.05f;
                     }
                     eye_direction = e_target - eye_pos;
                     eye_direction.normalize();
@@ -256,9 +258,9 @@ void handleInput() {
                     //VEC3F e_target = eye_pos + eye_direction;
                     e_target = eye_pos + eye_direction;
                     if( dy > 2 ) {
-                        e_target -= eye_up*0.01f;
+                        e_target -= eye_up*0.05f;
                     }else if( dy < -2 ) {
-                        e_target += eye_up*0.01f;
+                        e_target += eye_up*0.05f;
                     }
                         eye_direction = e_target - eye_pos;
                         eye_direction.normalize();
@@ -301,6 +303,13 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
         for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
             const struct aiFace *face = &mesh->mFaces[f];
             //for(v=0; v < face->mNumIndices; ++v) {
+            if( face->mNumIndices != 3 ) {
+                if( show_error) {
+                    std::cerr<< "mNumIndices "<<face->mNumIndices<<"  != 3"<<std::endl;
+                }
+                continue;
+            }
+
             for(v=0; v < 3; ++v) {
                 int index = face->mIndices[v];
                 if(mesh->mNormals != NULL) {
@@ -446,6 +455,7 @@ void renderFrame() {
     //try various render methods
     //renderNode(scene, scene->mRootNode);
     renderNode2(scene, scene->mRootNode);
+    if( show_error == true ) show_error = false;
 }
 
 
