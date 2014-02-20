@@ -297,48 +297,29 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
         }
 
         //prepare vertices buffer
-        float *vertices = (float*)malloc(3*3*sizeof(float)*mesh->mNumFaces);
-        float *normals = (float*)malloc(3*3*sizeof(float)*mesh->mNumFaces);
+        int *index = (int*)malloc( mesh->mNumFaces * 3 * sizeof(int) );
         int vi=0;
+
+        //set index array
         for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
             const struct aiFace *face = &mesh->mFaces[f];
-            //for(v=0; v < face->mNumIndices; ++v) {
-            if( face->mNumIndices != 3 ) {
-                if( show_error) {
-                    std::cerr<< "mNumIndices "<<face->mNumIndices<<"  != 3"<<std::endl;
-                }
-                continue;
-            }
-
-            for(v=0; v < 3; ++v) {
-                int index = face->mIndices[v];
-                if(mesh->mNormals != NULL) {
-                }
-
-                //copy vetex
-                vertices[vi] = mesh->mVertices[index].x;
-                //vi++;
-                vertices[vi] = mesh->mVertices[index].y;
-                //vi++;
-                vertices[vi] = mesh->mVertices[index].z;
-                //vi++;
+            for(v=0; v < face->mNumIndices; ++v ) {
+                index[vi] = face->mIndices[v];
+                vi++;
             }
         }
-        //glEnableClientState(GL_VERTEX_ARRAY);
-        free(vertices);
-        free(normals);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
+        glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
+        glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_INT, &index[0]);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        free(index);
 
+/*
         for(f=0; f < mesh->mNumFaces; ++f) {
             const struct aiFace *face = &mesh->mFaces[f];
-            //GLenum face_mode;
-
-            /*
-            switch(face->mNumIndices) {
-                case 1: face_mode = GL_POINTS; break;
-                case 2: face_mode = GL_LINES; break;
-                case 3: face_mode = GL_TRIANGLES; break;
-            }
-            */
             glBegin(GL_TRIANGLES);
             for(v=0; v < face->mNumIndices; ++v) {
                 int index = face->mIndices[v];
@@ -351,6 +332,8 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
             glEnd();
 
         }
+*/
+
     }
 
     //draw all children
@@ -398,7 +381,7 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
             for(v=0; v < face->mNumIndices; ++v) {
                 int index = face->mIndices[v];
                 if(mesh->mNormals != NULL) {
-                    glNormal3fv(&mesh->mNormals[index].x);
+                    //glNormal3fv(&mesh->mNormals[index].x);
                 }
                 glVertex3fv(&mesh->mVertices[index].x);
             }
