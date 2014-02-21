@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <iomanip>
 #include "Framework.h"
 #include "Shader.h"
 #include "VEC3.h"
@@ -47,6 +48,61 @@ float eye_rot_degreey=0.0f;
 
 
 bool show_error = true;
+
+///////////////////////////////////  test   /////////////////////////////////////
+GLfloat vertices2[] = { 1, 1, 1,  -1, 1, 1,  -1,-1, 1,   1,-1, 1,   // v0,v1,v2,v3 (front)
+                        1, 1, 1,   1,-1, 1,   1,-1,-1,   1, 1,-1,   // v0,v3,v4,v5 (right)
+                        1, 1, 1,   1, 1,-1,  -1, 1,-1,  -1, 1, 1,   // v0,v5,v6,v1 (top)
+                       -1, 1, 1,  -1, 1,-1,  -1,-1,-1,  -1,-1, 1,   // v1,v6,v7,v2 (left)
+                       -1,-1,-1,   1,-1,-1,   1,-1, 1,  -1,-1, 1,   // v7,v4,v3,v2 (bottom)
+                        1,-1,-1,  -1,-1,-1,  -1, 1,-1,   1, 1,-1 }; // v4,v7,v6,v5 (back)
+
+// normal array
+GLfloat normals2[]  = { 0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,   // v0,v1,v2,v3 (front)
+                        1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,   // v0,v3,v4,v5 (right)
+                        0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,   // v0,v5,v6,v1 (top)
+                       -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,   // v1,v6,v7,v2 (left)
+                        0,-1, 0,   0,-1, 0,   0,-1, 0,   0,-1, 0,   // v7,v4,v3,v2 (bottom)
+                        0, 0,-1,   0, 0,-1,   0, 0,-1,   0, 0,-1 }; // v4,v7,v6,v5 (back)
+
+// color array
+GLfloat colors2[]   = { 1, 1, 1,   1, 1, 0,   1, 0, 0,   1, 0, 1,   // v0,v1,v2,v3 (front)
+                        1, 1, 1,   1, 0, 1,   0, 0, 1,   0, 1, 1,   // v0,v3,v4,v5 (right)
+                        1, 1, 1,   0, 1, 1,   0, 1, 0,   1, 1, 0,   // v0,v5,v6,v1 (top)
+                        1, 1, 0,   0, 1, 0,   0, 0, 0,   1, 0, 0,   // v1,v6,v7,v2 (left)
+                        0, 0, 0,   0, 0, 1,   1, 0, 1,   1, 0, 0,   // v7,v4,v3,v2 (bottom)
+                        0, 0, 1,   0, 0, 0,   0, 1, 0,   0, 1, 1 }; // v4,v7,v6,v5 (back)
+
+// index array of vertex array for glDrawElements() & glDrawRangeElement()
+//GLubyte indices[]  = { 0, 1, 2,   2, 3, 0,      // front
+unsigned int indices[]  = { 0, 1, 2,   2, 3, 0,      // front
+                       4, 5, 6,   6, 7, 4,      // right
+                       8, 9,10,  10,11, 8,      // top
+                      12,13,14,  14,15,12,      // left
+                      16,17,18,  18,19,16,      // bottom
+                      20,21,22,  22,23,20 };    // back
+
+void vertexArrayTest()
+{
+    //glEnableClientState(GL_NORMAL_ARRAY);
+    //glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    //glNormalPointer(GL_FLOAT, 0, normals2);
+    //glColorPointer(3, GL_FLOAT, 0, colors2);
+    glVertexPointer(3, GL_FLOAT, 0, vertices2);
+
+    //glPushMatrix();
+    //glTranslatef(-2, -2, 0);                // move to bottom-left corner
+
+    //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, indices);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, indices);
+
+    //glPopMatrix();
+
+    glDisableClientState(GL_VERTEX_ARRAY);  // disable vertex arrays
+    //glDisableClientState(GL_COLOR_ARRAY);
+    //glDisableClientState(GL_NORMAL_ARRAY);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
@@ -301,7 +357,8 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
         }
 
         //prepare vertices buffer
-        int *index = (int*)malloc( mesh->mNumFaces * 3 * sizeof(int) );
+        int num_idx = mesh->mNumFaces * 3;
+        unsigned int *index = (unsigned int*)malloc( num_idx * sizeof(unsigned int) );
         int vi=0;
 
         //set index array
@@ -312,32 +369,18 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
                 vi++;
             }
         }
+        
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_NORMAL_ARRAY);
         glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
         glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
-        glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_INT, &index[0]);
+        glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
+        //GLenum glerr = glGetError();
+        //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
         glDisableClientState(GL_VERTEX_ARRAY);
         glDisableClientState(GL_NORMAL_ARRAY);
+        
         free(index);
-
-/*
-        for(f=0; f < mesh->mNumFaces; ++f) {
-            const struct aiFace *face = &mesh->mFaces[f];
-            glBegin(GL_TRIANGLES);
-            for(v=0; v < face->mNumIndices; ++v) {
-                int index = face->mIndices[v];
-                if(mesh->mNormals != NULL) {
-                    glNormal3fv(&mesh->mNormals[index].x);
-                }
-                glVertex3fv(&mesh->mVertices[index].x);
-            }
-
-            glEnd();
-
-        }
-*/
-
     }
 
     //draw all children
@@ -398,7 +441,7 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
     //draw all children
     unsigned int n;
     for(n=0; n < nd->mNumChildren; ++n) {
-        renderNode( sc, nd->mChildren[n]); 
+        renderNode( sc, nd->mChildren[n]);
     }
 
     glPopMatrix();
@@ -441,66 +484,13 @@ void renderFrame() {
     
     //try various render methods
     //renderNode(scene, scene->mRootNode);
-    //renderNode2(scene, scene->mRootNode);
-    vertexArrayTest();
+    renderNode2(scene, scene->mRootNode);
+    //vertexArrayTest();
     if( show_error == true ) show_error = false;
 }
 
 
 
-///////////////////////////////////  test   /////////////////////////////////////
-GLfloat vertices2[] = { 1, 1, 1,  -1, 1, 1,  -1,-1, 1,   1,-1, 1,   // v0,v1,v2,v3 (front)
-                        1, 1, 1,   1,-1, 1,   1,-1,-1,   1, 1,-1,   // v0,v3,v4,v5 (right)
-                        1, 1, 1,   1, 1,-1,  -1, 1,-1,  -1, 1, 1,   // v0,v5,v6,v1 (top)
-                       -1, 1, 1,  -1, 1,-1,  -1,-1,-1,  -1,-1, 1,   // v1,v6,v7,v2 (left)
-                       -1,-1,-1,   1,-1,-1,   1,-1, 1,  -1,-1, 1,   // v7,v4,v3,v2 (bottom)
-                        1,-1,-1,  -1,-1,-1,  -1, 1,-1,   1, 1,-1 }; // v4,v7,v6,v5 (back)
-
-// normal array
-GLfloat normals2[]  = { 0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,   // v0,v1,v2,v3 (front)
-                        1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,   // v0,v3,v4,v5 (right)
-                        0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,   // v0,v5,v6,v1 (top)
-                       -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,   // v1,v6,v7,v2 (left)
-                        0,-1, 0,   0,-1, 0,   0,-1, 0,   0,-1, 0,   // v7,v4,v3,v2 (bottom)
-                        0, 0,-1,   0, 0,-1,   0, 0,-1,   0, 0,-1 }; // v4,v7,v6,v5 (back)
-
-// color array
-GLfloat colors2[]   = { 1, 1, 1,   1, 1, 0,   1, 0, 0,   1, 0, 1,   // v0,v1,v2,v3 (front)
-                        1, 1, 1,   1, 0, 1,   0, 0, 1,   0, 1, 1,   // v0,v3,v4,v5 (right)
-                        1, 1, 1,   0, 1, 1,   0, 1, 0,   1, 1, 0,   // v0,v5,v6,v1 (top)
-                        1, 1, 0,   0, 1, 0,   0, 0, 0,   1, 0, 0,   // v1,v6,v7,v2 (left)
-                        0, 0, 0,   0, 0, 1,   1, 0, 1,   1, 0, 0,   // v7,v4,v3,v2 (bottom)
-                        0, 0, 1,   0, 0, 0,   0, 1, 0,   0, 1, 1 }; // v4,v7,v6,v5 (back)
-
-// index array of vertex array for glDrawElements() & glDrawRangeElement()
-GLubyte indices[]  = { 0, 1, 2,   2, 3, 0,      // front
-                       4, 5, 6,   6, 7, 4,      // right
-                       8, 9,10,  10,11, 8,      // top
-                      12,13,14,  14,15,12,      // left
-                      16,17,18,  18,19,16,      // bottom
-                      20,21,22,  22,23,20 };    // back
-
-void vertexArrayTest()
-{
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glNormalPointer(GL_FLOAT, 0, normals2);
-    glColorPointer(3, GL_FLOAT, 0, colors2);
-    glVertexPointer(3, GL_FLOAT, 0, vertices2);
-
-    glPushMatrix();
-    glTranslatef(-2, -2, 0);                // move to bottom-left corner
-
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, indices);
-
-    glPopMatrix();
-
-    glDisableClientState(GL_VERTEX_ARRAY);  // disable vertex arrays
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
-
-}
 
 
 
