@@ -12,7 +12,7 @@
 // and using rendering settings
 // http://www.sfml-dev.org/tutorials/1.6/window-window.php
 sf::WindowSettings settings(24, 8, 2);
-sf::Window window(sf::VideoMode(800, 600), "CS248 Rules!", sf::Style::Close, settings);
+sf::Window window(sf::VideoMode(800, 600), "Opengl/assimp/sfml", sf::Style::Close, settings);
  
 // This is a clock you can use to control animation.  For more info, see:
 // http://www.sfml-dev.org/tutorials/1.6/window-time.php
@@ -392,12 +392,78 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
     glPopMatrix();
 }
 
+void setTexture(const struct aiScene *sc, const struct aiMesh* mesh)
+{
+
+}
+
+void renderMesh(const struct aiScene *sc, const struct aiMesh *mesh)
+{
+    unsigned int f=0;
+    unsigned int v=0;
+    aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
+
+    if( mesh->HasNormals() ) {
+        glEnable(GL_LIGHTING);
+    }else{
+        glDisable(GL_LIGHTING);
+    }
+    
+    //check and load texture
+    setTexture(sc, mesh);
+
+    // set material colors
+    aiColor3D color;
+    GLfloat gl_color[3];
+    if( AI_SUCCESS == material->Get(AI_MATKEY_COLOR_DIFFUSE, color) ) {
+        gl_color[0] = color.r;
+        gl_color[1] = color.g;
+        gl_color[2] = color.b;
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, gl_color);
+    }else {
+        std::cerr << "material get color_diffuse failed" << std::endl;
+    }
+
+    //specular material
+    if( AI_SUCCESS == material->Get(AI_MATKEY_COLOR_SPECULAR, color) ) {
+        gl_color[0] = color.r;
+        gl_color[1] = color.g;
+        gl_color[2] = color.b;
+        //glMaterialfv(GL_FRONT, GL_SPECULAR, gl_color);
+    }else {
+        std::cerr << "material get color_specular failed" << std::endl;
+    }
+
+    //ambient material
+    if( AI_SUCCESS == material->Get(AI_MATKEY_COLOR_AMBIENT, color) ) {
+        gl_color[0] = color.r;
+        gl_color[1] = color.g;
+        gl_color[2] = color.b;
+        //glMaterialfv(GL_FRONT, GL_AMBIENT, gl_color);
+    }else {
+        std::cerr << "material get color_ambient failed" << std::endl;
+    }
+
+    for(f=0; f < mesh->mNumFaces; ++f) {
+        const struct aiFace *face = &mesh->mFaces[f];
+
+        glBegin(GL_TRIANGLES);
+        for(v=0; v < face->mNumIndices; ++v) {
+            int index = face->mIndices[v];
+            if(mesh->mNormals != NULL) {
+                glNormal3fv(&mesh->mNormals[index].x);
+            }
+            glVertex3fv(&mesh->mVertices[index].x);
+        }
+
+        glEnd();
+    }
+}
+
 void renderNode(const struct aiScene *sc, const struct aiNode *nd)
 {
     struct aiMatrix4x4 m = nd->mTransformation;
     unsigned int i;
-    unsigned int f;
-    unsigned int v;
 
     //update transform
     aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
@@ -407,35 +473,7 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
     //draw this node
     for(i=0; i < nd->mNumMeshes; ++i) {
         const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
-        if( mesh->HasNormals() ) {
-            glEnable(GL_LIGHTING);
-        }else{
-            glDisable(GL_LIGHTING);
-        }
-
-        for(f=0; f < mesh->mNumFaces; ++f) {
-            const struct aiFace *face = &mesh->mFaces[f];
-            //GLenum face_mode;
-
-            /*
-            switch(face->mNumIndices) {
-                case 1: face_mode = GL_POINTS; break;
-                case 2: face_mode = GL_LINES; break;
-                case 3: face_mode = GL_TRIANGLES; break;
-            }
-            */
-            glBegin(GL_TRIANGLES);
-            for(v=0; v < face->mNumIndices; ++v) {
-                int index = face->mIndices[v];
-                if(mesh->mNormals != NULL) {
-                    //glNormal3fv(&mesh->mNormals[index].x);
-                }
-                glVertex3fv(&mesh->mVertices[index].x);
-            }
-
-            glEnd();
-
-        }
+        renderMesh(sc, mesh);
     }
 
     //draw all children
@@ -458,7 +496,7 @@ void renderFrame() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    // uses default lighting parameters
-    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
+    //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -483,8 +521,8 @@ void renderFrame() {
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
     
     //try various render methods
-    //renderNode(scene, scene->mRootNode);
-    renderNode2(scene, scene->mRootNode);
+    renderNode(scene, scene->mRootNode);
+    //renderNode2(scene, scene->mRootNode);
     //vertexArrayTest();
     if( show_error == true ) show_error = false;
 }
