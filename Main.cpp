@@ -207,6 +207,32 @@ void get_bounding_box (struct aiVector3D* min, struct aiVector3D* max)
 	get_bounding_box_for_node(scene->mRootNode,min,max,&trafo);
 }
 
+
+struct mat_textures{
+    sf::Image *diffuseMap;
+    sf::Image *specularMap;
+    sf::Image *normalMap;
+};
+
+//index is material index
+struct mat_textures mat_tex[50]= { 0 };
+
+            
+#define Try_Load_Material_Texture(i, texType, map) \
+        if( AI_SUCCESS == material->GetTexture(texType, 0, &path) ) { \
+            path.Append("_d.jpg");  \
+            fullPath.Append( path.data ); \
+            mat_tex[i].map = new sf::Image(); \
+            mat_tex[i].map->LoadFromFile( fullPath.data ); \
+            mat_tex[i].map->Bind(); \
+            glGenerateMipmap(GL_TEXTURE_2D); \
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); \
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); \
+            std::cerr << "material[ "<< i <<" ]  : " << fullPath.data << std::endl; \
+        }else{  \
+            mat_tex[i].map = 0; \
+        }
+
 //#define AI_CONFIG_PP_SBP_REMOVE (aiPrimitiveType_POINTS | aiPrimitiveType_LINES)
 void loadAssets() {
     // Read in an asset file, and do some post-processing.  There is much 
@@ -235,6 +261,21 @@ void loadAssets() {
     //////////////////////////////////////////////////////////////////////////
     // TODO: LOAD YOUR SHADERS/TEXTURES
     //////////////////////////////////////////////////////////////////////////
+    int i=0;
+    for(i=0; i < scene->mNumMaterials; ++i) {
+        aiMaterial *material = scene->mMaterials[i];
+        aiString fullPath;
+        aiString path; 
+        fullPath = "models/";
+        std::cerr << "material[ "<< i <<" ]  : diffuse tex count =  " << material->GetTextureCount(aiTextureType_DIFFUSE) << std::endl;
+        std::cerr << "material[ "<< i <<" ]  : specular tex count =  " << material->GetTextureCount(aiTextureType_SPECULAR) << std::endl;
+        std::cerr << "material[ "<< i <<" ]  : normals tex count =  " << material->GetTextureCount(aiTextureType_NORMALS) << std::endl;
+        Try_Load_Material_Texture(i, aiTextureType_DIFFUSE, diffuseMap);
+        Try_Load_Material_Texture(i, aiTextureType_SPECULAR, specularMap);
+        Try_Load_Material_Texture(i, aiTextureType_NORMALS, normalMap);
+
+        //mip map
+    }
 }
 
 void handleInput() {
@@ -369,17 +410,30 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
                 vi++;
             }
         }
+
+        unsigned int mi = mesh->mMaterialIndex;
+        if( mat_tex[mi].diffuseMap != 0 ) {
+            glEnable(GL_TEXTURE_2D);
+            mat_tex[mi].diffuseMap->Bind();
+        }
         
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_NORMAL_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
         glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(aiVector3D), mesh->mTextureCoords[0]);
         glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
         //GLenum glerr = glGetError();
         //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         glDisableClientState(GL_VERTEX_ARRAY);
         glDisableClientState(GL_NORMAL_ARRAY);
         
+        if( mat_tex[mi].diffuseMap != 0 ) {
+            //glDisable(GL_TEXTURE_2D);
+        }
+
         free(index);
     }
 
@@ -394,6 +448,11 @@ void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
 
 void setTexture(const struct aiScene *sc, const struct aiMesh* mesh)
 {
+        unsigned int mi = mesh->mMaterialIndex;
+        if( mat_tex[mi].diffuseMap != 0 ) {
+            glEnable(GL_TEXTURE_2D);
+            mat_tex[mi].diffuseMap->Bind();
+        }
 
 }
 
@@ -521,8 +580,8 @@ void renderFrame() {
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
     
     //try various render methods
-    renderNode(scene, scene->mRootNode);
-    //renderNode2(scene, scene->mRootNode);
+    //renderNode(scene, scene->mRootNode);
+    renderNode2(scene, scene->mRootNode);
     //vertexArrayTest();
     if( show_error == true ) show_error = false;
 }
