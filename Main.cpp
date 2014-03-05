@@ -171,13 +171,78 @@ struct mat_textures mat_tex[50]= { 0 };
             mat_tex[i].map = new sf::Image(); \
             mat_tex[i].map->LoadFromFile( fullPath.data ); \
             mat_tex[i].map->Bind(); \
-            glGenerateMipmap(GL_TEXTURE_2D); \
+            /*glGenerateMipmap(GL_TEXTURE_2D);*/ \
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); \
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); \
             std::cerr << "material[ "<< i <<" ]  : " << fullPath.data << std::endl; \
         }else{  \
             mat_tex[i].map = 0; \
         }
+
+void CheckAndLoadTexture(const struct aiScene *scene) 
+{
+    int i=0;
+    for(i=0; i < scene->mNumMaterials; ++i) {
+        aiMaterial *material = scene->mMaterials[i];
+        aiString fullPath;
+        aiString path; 
+        aiString tex_path;
+        fullPath = "models/";
+
+        if( AI_SUCCESS == material->GetTexture( aiTextureType_DIFFUSE, 0, &tex_path ) ) { 
+            //diffuse map
+            path = tex_path;
+            path.Append("_d.jpg");  
+            fullPath.Append( path.data ); 
+            mat_tex[i].diffuseMap = new sf::Image(); 
+            mat_tex[i].diffuseMap->LoadFromFile( fullPath.data ); 
+            mat_tex[i].diffuseMap->Bind(); 
+            /*glGenerateMipmap(GL_TEXTURE_2D);*/ 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+            std::cerr << "material[ "<< i <<" ]  : " << fullPath.data << std::endl; 
+
+            //check normal map
+            path = tex_path;
+            path.Append("_n.jpg");  
+            fullPath = "models/";
+            fullPath.Append( path.data ); 
+            mat_tex[i].normalMap = new sf::Image();
+            if( mat_tex[i].normalMap->LoadFromFile( fullPath.data ) ) {
+                mat_tex[i].normalMap->Bind();
+                /*glGenerateMipmap(GL_TEXTURE_2D);*/ 
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+            std::cerr << "material[ "<< i <<" ]  : " << fullPath.data << std::endl; 
+            }else{
+                delete mat_tex[i].normalMap;
+                mat_tex[i].normalMap = 0;
+            }
+
+            //specular map
+            path = tex_path;
+            path.Append("_s.jpg");  
+            fullPath = "models/";
+            fullPath.Append( path.data ); 
+            mat_tex[i].specularMap = new sf::Image();
+            if( mat_tex[i].specularMap->LoadFromFile( fullPath.data ) ) {
+                mat_tex[i].specularMap->Bind();
+                /*glGenerateMipmap(GL_TEXTURE_2D);*/ 
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+            std::cerr << "material[ "<< i <<" ]  : " << fullPath.data << std::endl; 
+            }else{
+                delete mat_tex[i].specularMap;
+                mat_tex[i].specularMap = 0;
+            }
+        }else{  
+            mat_tex[i].diffuseMap = 0; 
+            mat_tex[i].normalMap = 0; 
+            mat_tex[i].specularMap = 0; 
+        }
+        
+    }
+}
 
 //#define AI_CONFIG_PP_SBP_REMOVE (aiPrimitiveType_POINTS | aiPrimitiveType_LINES)
 void loadAssets() {
@@ -207,21 +272,8 @@ void loadAssets() {
     //////////////////////////////////////////////////////////////////////////
     // TODO: LOAD YOUR SHADERS/TEXTURES
     //////////////////////////////////////////////////////////////////////////
-    int i=0;
-    for(i=0; i < scene->mNumMaterials; ++i) {
-        aiMaterial *material = scene->mMaterials[i];
-        aiString fullPath;
-        aiString path; 
-        fullPath = "models/";
-        std::cerr << "material[ "<< i <<" ]  : diffuse tex count =  " << material->GetTextureCount(aiTextureType_DIFFUSE) << std::endl;
-        std::cerr << "material[ "<< i <<" ]  : specular tex count =  " << material->GetTextureCount(aiTextureType_SPECULAR) << std::endl;
-        std::cerr << "material[ "<< i <<" ]  : normals tex count =  " << material->GetTextureCount(aiTextureType_NORMALS) << std::endl;
-        Try_Load_Material_Texture(i, aiTextureType_DIFFUSE, diffuseMap);
-        Try_Load_Material_Texture(i, aiTextureType_SPECULAR, specularMap);
-        Try_Load_Material_Texture(i, aiTextureType_NORMALS, normalMap);
+    CheckAndLoadTexture(scene);
 
-        //mip map
-    }
 }
 
 void handleInput() {
@@ -322,76 +374,8 @@ void handleInput() {
     }
 }
 
-void renderNode2(const struct aiScene *sc, const struct aiNode *nd)
-{
-    struct aiMatrix4x4 m = nd->mTransformation;
-    unsigned int i;
-    unsigned int f;
-    unsigned int v;
 
-    //update transform
-    aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
-    glPushMatrix();
-    glMultMatrixf((float*)&m);
-
-    //draw this node
-    for(i=0; i < nd->mNumMeshes; ++i) {
-        const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
-        if( mesh->HasNormals() ) {
-            glEnable(GL_LIGHTING);
-        }else{
-            glDisable(GL_LIGHTING);
-        }
-
-        //prepare vertices buffer
-        int num_idx = mesh->mNumFaces * 3;
-        unsigned int *index = (unsigned int*)malloc( num_idx * sizeof(unsigned int) );
-        int vi=0;
-
-        //set index array
-        for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
-            const struct aiFace *face = &mesh->mFaces[f];
-            for(v=0; v < face->mNumIndices; ++v ) {
-                index[vi] = face->mIndices[v];
-                vi++;
-            }
-        }
-
-        unsigned int mi = mesh->mMaterialIndex;
-        if( mat_tex[mi].diffuseMap != 0 ) {
-            glEnable(GL_TEXTURE_2D);
-            mat_tex[mi].diffuseMap->Bind();
-        }
-        
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_NORMAL_ARRAY);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
-        glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
-        glTexCoordPointer(2, GL_FLOAT, sizeof(aiVector3D), mesh->mTextureCoords[0]);
-        glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
-        //GLenum glerr = glGetError();
-        //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_NORMAL_ARRAY);
-        
-        if( mat_tex[mi].diffuseMap != 0 ) {
-            //glDisable(GL_TEXTURE_2D);
-        }
-
-        free(index);
-    }
-
-    //draw all children
-    unsigned int n;
-    for(n=0; n < nd->mNumChildren; ++n) {
-        renderNode2( sc, nd->mChildren[n]); 
-    }
-
-    glPopMatrix();
-}
-
+//---------------------------------------------------------- general glBegin/glEnd drawing method -------------------------------------
 void setTexture(const struct aiScene *sc, const struct aiMesh* mesh)
 {
         unsigned int mi = mesh->mMaterialIndex;
@@ -490,6 +474,86 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
     glPopMatrix();
 }
 
+//------------------------------------------ Use vertex array -------------------------------------------------------
+void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
+{
+    struct aiMatrix4x4 m = nd->mTransformation;
+    unsigned int i;
+    unsigned int f;
+    unsigned int v;
+
+    //update transform
+    aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
+    glPushMatrix();
+    glMultMatrixf((float*)&m);
+
+    //draw meshes in this node
+    for(i=0; i < nd->mNumMeshes; ++i) {
+        const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
+        if( mesh->HasNormals() ) {
+            glEnable(GL_LIGHTING);
+        }else{
+            glDisable(GL_LIGHTING);
+        }
+
+        //prepare vertices buffer
+        int num_idx = mesh->mNumFaces * 3;
+        unsigned int *index = (unsigned int*)malloc( num_idx * sizeof(unsigned int) );
+        int vi=0;
+
+        //set index array
+        for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
+            const struct aiFace *face = &mesh->mFaces[f];
+            for(v=0; v < face->mNumIndices; ++v ) {
+                index[vi] = face->mIndices[v];
+                vi++;
+            }
+        }
+
+        //bind texture if any
+        unsigned int mi = mesh->mMaterialIndex;
+        if( mat_tex[mi].diffuseMap != 0 ) {
+            glEnable(GL_TEXTURE_2D);
+            mat_tex[mi].diffuseMap->Bind();
+        }else{
+            std::cerr << "mesh doesn't have a texture" << std::endl;
+        }
+        
+        //transfer vertex attributes
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
+        glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(aiVector3D), mesh->mTextureCoords[0]);
+        glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
+        //GLenum glerr = glGetError();
+        //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        
+        if( mat_tex[mi].diffuseMap != 0 ) {
+            glDisable(GL_TEXTURE_2D);
+        }
+
+        free(index);
+    }
+
+    //draw all children
+    unsigned int n;
+    for(n=0; n < nd->mNumChildren; ++n) {
+        renderNode_VertexArray( sc, nd->mChildren[n]); 
+    }
+
+    glPopMatrix();
+}
+
+//--------------------------------------------------------Use glsl customized shader -----------------------------------------------------
+void renderNode_glsl(const struct aiScene *sc, const struct aiNode *nd)
+{
+
+}
 
 void renderFrame() {
     //////////////////////////////////////////////////////////////////////////
@@ -530,9 +594,9 @@ void renderFrame() {
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
     
     //try various render methods
+    
     //renderNode(scene, scene->mRootNode);
-    renderNode2(scene, scene->mRootNode);
-    //vertexArrayTest();
+    renderNode_VertexArray(scene, scene->mRootNode);
     if( show_error == true ) show_error = false;
 }
 
