@@ -36,6 +36,7 @@ void renderFrame();
 /////////     test      ///////////////////
 static void vertexArrayTest();
 /////////     test      ///////////////////
+static void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh);
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //static GLfloat eye_pos[3], eye_direction[3];
@@ -58,14 +59,29 @@ float eye_rot_degreey=0.0f;
 
 bool show_error = true;
 
+Shader *simpleShader=0;
+Shader *normalmapShader=0;
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
     VEC3F ref_point(0.0f, 0.0f, 0.0f);
-    eye_pos.x = 0.0f; eye_pos.y = 0.0f; eye_pos.z = 8.0f;
+    //eye_pos.x = 0.0f; eye_pos.y = 0.0f; eye_pos.z = 8.0f;
+    eye_pos.x = 0.0f; eye_pos.y = 1.5f; eye_pos.z = 8.0f;
     eye_up.x = 0.0f; eye_up.y = 1.f; eye_up.z = 0;
     eye_direction = ref_point - eye_pos;
     eye_direction.normalize();
+}
+
+void initShader()
+{
+    normalmapShader = new Shader("shaders/phong");
+    if(!normalmapShader->loaded()) {
+        std::cerr<< "Shader failed to load" << std::endl;
+        std::cerr << normalmapShader->errors() << std::endl;
+        exit(-1);
+    }
+
 }
 
 int main(int argc, char** argv) {
@@ -73,6 +89,7 @@ int main(int argc, char** argv) {
     initOpenGL();
     initEye();
     loadAssets();
+    initShader();
 
     // Put your game loop here (i.e., render with OpenGL, update animation)
     while (window.IsOpened()) {
@@ -457,11 +474,11 @@ void renderNode(const struct aiScene *sc, const struct aiNode *nd)
     glPopMatrix();
 }
 
-//------------------------------------------ Use vertex array -------------------------------------------------------
+//------------------------------------------ Use vertex array -------------------
 void renderMesh_VertexArray(const struct aiScene *sc, const struct aiMesh *mesh  )
 {
     int v=0, f=0;
-    aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
+    //aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
     if( mesh->HasNormals() ) {
         glEnable(GL_LIGHTING);
     }else{
@@ -519,8 +536,6 @@ void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
 {
     struct aiMatrix4x4 m = nd->mTransformation;
     unsigned int i;
-    unsigned int f;
-    unsigned int v;
 
     //update transform
     aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
@@ -530,7 +545,8 @@ void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
     //draw meshes in this node
     for(i=0; i < nd->mNumMeshes; ++i) {
         const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
-        renderMesh_VertexArray(sc, mesh);
+        //renderMesh_VertexArray(sc, mesh);
+        renderMesh_glsl(sc, mesh);
     }
 
     //draw all children
@@ -545,6 +561,87 @@ void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
 //--------------------------------------------------------Use glsl customized shader -----------------------------------------------------
 void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
 {
+    int v=0, f=0;
+
+    //choose shader
+    glUseProgram(normalmapShader->programID());
+    
+    
+    //aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
+    if( mesh->HasNormals() ) {
+        glEnable(GL_LIGHTING);
+    }else{
+        glDisable(GL_LIGHTING);
+    }
+
+    //prepare vertices buffer
+    int num_idx = mesh->mNumFaces * 3;
+    unsigned int *index = (unsigned int*)malloc( num_idx * sizeof(unsigned int) );
+    int vi=0;
+
+    //create index array
+    for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
+        const struct aiFace *face = &mesh->mFaces[f];
+        for(v=0; v < face->mNumIndices; ++v ) {
+            index[vi] = face->mIndices[v];
+            vi++;
+        }
+    }
+
+    //set textures
+    unsigned int mi = mesh->mMaterialIndex;
+    if( mat_tex[mi].diffuseMap != 0 ) {
+        GLint diffuse = glGetUniformLocation(normalmapShader->programID(), "diffuseMap");
+        glUniform1i(diffuse, 0);    // the diffuse map will be GL_TEXTURE0
+        glActiveTexture(GL_TEXTURE0);
+        mat_tex[mi].diffuseMap->Bind();
+    }
+
+    if( mat_tex[mi].specularMap != 0 ) {
+        GLint specular = glGetUniformLocation(normalmapShader->programID(), "specularMap");
+        glUniform1i(specular, 1);   // the specular map will be GL_TEXTURE1
+        glActiveTexture(GL_TEXTURE1);
+        mat_tex[mi].specularMap->Bind();
+    }
+
+    //to do: normal map
+
+    
+    //set mesh data
+    //set vertex positions
+    GLint position = glGetAttribLocation(normalmapShader->programID(), "positionIn");
+    glEnableVertexAttribArray(position);
+    glVertexAttribPointer(position, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mVertices);
+
+    //set texure coordinator
+    GLint texcoord = glGetAttribLocation(normalmapShader->programID(), "texcoordIn");
+    glEnableVertexAttribArray(texcoord);
+    glVertexAttribPointer(texcoord, 2, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mTextureCoords[0]);
+
+    //set normals
+    GLint normal = glGetAttribLocation(normalmapShader->programID(), "normalIn");
+    glEnableVertexAttribArray(normal);
+    glVertexAttribPointer(normal, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mNormals);
+
+    glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
+
+#if 0
+    //transfer vertex attributes
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
+    glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(aiVector3D), mesh->mTextureCoords[0]);
+    glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
+    //GLenum glerr = glGetError();
+    //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+#endif
+
+    free(index);
 
 }
 
