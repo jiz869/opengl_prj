@@ -567,7 +567,7 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
     glUseProgram(normalmapShader->programID());
     
     
-    //aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
+    aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
     if( mesh->HasNormals() ) {
         glEnable(GL_LIGHTING);
     }else{
@@ -586,6 +586,28 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
             index[vi] = face->mIndices[v];
             vi++;
         }
+    }
+
+    //set material
+    aiColor3D color;
+    GLint diffuse = glGetUniformLocation(normalmapShader->programID(), "Kd");
+    material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+    glUniform3f(diffuse, color.r, color.g, color.b);
+
+    GLint specular = glGetUniformLocation(normalmapShader->programID(), "Ks");
+    material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+    glUniform3f(specular, color.r, color.g, color.b);
+
+    GLint ambient = glGetUniformLocation(normalmapShader->programID(), "Ka");
+    material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+    glUniform3f(ambient, color.r, color.g, color.b);
+
+    GLint shininess = glGetUniformLocation(normalmapShader->programID(), "alpha");
+    float value;
+    if(AI_SUCCESS == material->Get(AI_MATKEY_COLOR_DIFFUSE, value)) {
+        glUniform1f(shininess, value);
+    }else{
+        glUniform1f(shininess, 0);
     }
 
     //set textures
@@ -624,22 +646,6 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
     glVertexAttribPointer(normal, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mNormals);
 
     glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
-
-#if 0
-    //transfer vertex attributes
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(3, GL_FLOAT, sizeof(aiVector3D), mesh->mVertices);
-    glNormalPointer(GL_FLOAT, sizeof(aiVector3D), mesh->mNormals);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(aiVector3D), mesh->mTextureCoords[0]);
-    glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
-    //GLenum glerr = glGetError();
-    //std::cerr << "Opengl error code 0x"<< std::hex << glerr << std::endl;
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
-#endif
 
     free(index);
 
