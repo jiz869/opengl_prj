@@ -626,10 +626,16 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
         mat_tex[mi].specularMap->Bind();
     }
 
-    //to do: normal map
+    if( mat_tex[mi].normalMap != 0 ) {
+        GLint normalmap = glGetUniformLocation(normalmapShader->programID(), "normalMap");
+        glUniform1i(normalmap, 2);   // the normal map will be GL_TEXTURE2
+        glActiveTexture(GL_TEXTURE2);
+        mat_tex[mi].normalMap->Bind();
+    }
 
     
     //set mesh data
+    
     //set vertex positions
     GLint position = glGetAttribLocation(normalmapShader->programID(), "positionIn");
     glEnableVertexAttribArray(position);
@@ -641,9 +647,22 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
     glVertexAttribPointer(texcoord, 2, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mTextureCoords[0]);
 
     //set normals
-    GLint normal = glGetAttribLocation(normalmapShader->programID(), "normalIn");
-    glEnableVertexAttribArray(normal);
-    glVertexAttribPointer(normal, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mNormals);
+    if(mesh->HasNormals()) {
+        GLint normal = glGetAttribLocation(normalmapShader->programID(), "normalIn");
+        glEnableVertexAttribArray(normal);
+        glVertexAttribPointer(normal, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mNormals);
+    }
+
+    //set tagents
+    if(mesh->HasTangentsAndBitangents()) {
+        GLint tangent = glGetAttribLocation(normalmapShader->programID(), "tangentIn");
+        glEnableVertexAttribArray(tangent);
+        glVertexAttribPointer(tangent, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mTangents);
+
+        GLint bitangent = glGetAttribLocation(normalmapShader->programID(), "bitangentIn");
+        glEnableVertexAttribArray(bitangent);
+        glVertexAttribPointer(bitangent, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mBitangents);
+    }
 
     glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
 

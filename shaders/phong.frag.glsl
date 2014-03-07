@@ -3,6 +3,7 @@
 // for all fragments in an object, but they can change in between objects.
 uniform sampler2D diffuseMap;
 uniform sampler2D specularMap;
+uniform sampler2D normalMap;
 
 // Diffuse, ambient, and specular materials.  These are also uniform.
 uniform vec3 Kd;
@@ -16,6 +17,9 @@ uniform float alpha;
 varying vec2 texcoord;
 varying vec3 normal;
 varying vec3 eyePosition;
+varying vec3 tangent;
+varying vec3 bitangent;
+varying vec3 tangentL;  // L in tangent space;
 
 void main() {
 
@@ -25,6 +29,13 @@ void main() {
 	vec3 N = normalize(normal);
 	vec3 L = normalize(gl_LightSource[0].position.xyz);
 	vec3 V = normalize(-eyePosition);
+
+    mat3 tbn = mat3(tangent, bitangent, N);
+    vec3 Tn = texture2D(normalMap, texcoord).rgb;
+    //decompress the normal
+    Tn = Tn*2 - 1;
+    Tn = tbn * Tn;
+    N = gl_NormalMatrix * Tn; 
 		
 	// Calculate the diffuse color coefficient, and sample the diffuse texture
 	float Rd = max(0.0, dot(L, N));
@@ -41,7 +52,6 @@ void main() {
 		
 	// Ambient is easy
 	vec3 ambient = Ka * gl_LightSource[0].ambient.rgb;
-	//vec3 ambient = Ka; 
 
 	// This actually writes to the frame buffer
 	//gl_FragColor = vec4(diffuse + specular + ambient, 1);
