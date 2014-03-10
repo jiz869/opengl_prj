@@ -15,45 +15,37 @@ uniform float alpha;
 // are repeated from the fragment shader.  That's because they're passed
 // across.
 varying vec2 texcoord;
-varying vec3 normal;
-varying vec3 eyePosition;
-varying vec3 tangent;
-varying vec3 bitangent;
 varying vec3 tangentL;  // L in tangent space;
+varying vec3 tangentV;
 
 void main() {
 
 	// Normalize the normal, and calculate light vector and view vector
 	// Note: this is doing a directional light, which is a little different
 	// from what you did in Assignment 2.
-	vec3 N = normalize(normal);
-	vec3 L = normalize(gl_LightSource[0].position.xyz);
-	vec3 V = normalize(-eyePosition);
-
-    mat3 tbn = mat3(tangent, bitangent, N);
     vec3 Tn = texture2D(normalMap, texcoord).rgb;
+
     //decompress the normal
-    Tn = Tn*2 - 1;
-    Tn = tbn * Tn;
-    N = gl_NormalMatrix * Tn; 
+    Tn = Tn*2.0 - 1.0;
 		
 	// Calculate the diffuse color coefficient, and sample the diffuse texture
-	float Rd = max(0.0, dot(L, N));
+	float Rd = max(0.0, dot(tangentL, Tn));
 	vec3 Td = texture2D(diffuseMap, texcoord).rgb;
-	//vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
-	vec3 diffuse = Rd * Kd * Td ;
+	vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
+	//vec3 diffuse = Rd * Kd * Td ;
 	
 	// Calculate the specular coefficient
-	vec3 R = reflect(-L, N);
-	float Rs = pow(max(0.0, dot(V, R)), 1.0);
+	vec3 R = reflect(-tangentL, Td);
+	float Rs = pow(max(0.0, dot(tangentV, R)), 1.0);
 	vec3 Ts = texture2D(specularMap, texcoord).rgb;
-	//vec3 specular = Rs * Ks * Ts * gl_LightSource[0].specular.rgb;
-	vec3 specular = Rs * Ts * Ks;
+	vec3 specular = Rs * Ks * Ts * gl_LightSource[0].specular.rgb;
+	//vec3 specular = Rs * Ts * Ks;
 		
 	// Ambient is easy
 	vec3 ambient = Ka * gl_LightSource[0].ambient.rgb;
 
 	// This actually writes to the frame buffer
 	//gl_FragColor = vec4(diffuse + specular + ambient, 1);
-	gl_FragColor = vec4(diffuse + specular, 1);
+	gl_FragColor = vec4(diffuse + specular, 1.0);
 }
+

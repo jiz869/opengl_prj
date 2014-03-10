@@ -6,6 +6,7 @@
 #include "VEC3.h"
 
 #define MODEL_PATH "models/cathedral.3ds"
+//#define MODEL_PATH "models/dragon.dae"
 
 
 // Note: See the SMFL documentation for info on setting up fullscreen mode
@@ -62,6 +63,7 @@ bool show_error = true;
 Shader *simpleShader=0;
 Shader *normalmapShader=0;
 
+GLfloat shadowlight[] = {0.0, 11.0, 10.0, 0.0};
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
@@ -681,10 +683,11 @@ void renderFrame() {
 
     //set light
     GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
-    //glLightfv(GL_LIGHT1, GL_POSITION, lpos);
     glLightfv(GL_LIGHT0, GL_POSITION, lpos);
+    glLightfv(GL_LIGHT1, GL_POSITION, shadowlight);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    
+    glEnable(GL_LIGHT1);    
     //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
     glMatrixMode(GL_MODELVIEW);
@@ -715,9 +718,19 @@ void renderFrame() {
     if( show_error == true ) show_error = false;
 }
 
+void renderShadowMap()
+{
+    //glGetFloatv (GL_MODELVIEW_MATRIX, m); 
+    //glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    //setup fbo
+    GLuint fbods;
+    glGenFramebuffers(1, &fbods);
+    glBindFramebuffer( GL_FRAMEBUFFER, fbods );
 
-
+    //unbind fbo
+}
 
 
 
