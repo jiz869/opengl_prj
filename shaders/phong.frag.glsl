@@ -25,6 +25,7 @@ void main() {
 	// from what you did in Assignment 2.
     vec3 Tn = texture2D(normalMap, texcoord).rgb;
 
+
     //decompress the normal
     Tn = Tn*2.0 - 1.0;
 		

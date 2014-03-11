@@ -722,14 +722,40 @@ void renderShadowMap()
 {
     //glGetFloatv (GL_MODELVIEW_MATRIX, m); 
     //glGetDoublev(GL_PROJECTION_MATRIX, projection);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     //setup fbo
-    GLuint fbods;
-    glGenFramebuffers(1, &fbods);
-    glBindFramebuffer( GL_FRAMEBUFFER, fbods );
+    GLuint fbod;
+    glGenFramebuffers(1, &fbod);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbod);
 
-    //unbind fbo
+    //create texture
+    GLuint shadowTextureID;
+    glGenTextures(1, &shadowTextureID);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, shadowTextureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, window.GetWidth(), window.GetHeight(), 0, GL_DEPTH_COMPONENT,
+            GL_UNSIGNED_BYTE, 0);
+
+    //attach texture to the framebuffer
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextureID, 0);
+
+    //check the status of the fbo
+    if(GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
+        std::cerr << "Invalid framebuffer configuration" << std::endl;
+        exit(-1);
+    }
+
+    //setup light camera
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
 }
 
 

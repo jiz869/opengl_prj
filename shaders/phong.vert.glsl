@@ -40,3 +40,4 @@ void main() {
 	// Just copy the texture coordinates
 	texcoord = texcoordIn;
 }
+
