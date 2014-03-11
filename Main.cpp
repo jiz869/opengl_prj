@@ -751,11 +751,26 @@ void renderShadowMap()
         exit(-1);
     }
 
+    //use simple shader
+
     //setup light camera
+    //glViewport(...);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    //setup matrices
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+    //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
+    //glOrtho(l, r, b, t, n, f);
 
+    glMatrixMode(GL_MODELVIEW);
+    //gluLookAt(...);
+
+    //draw scene and save matrix
+
+    //unbind fbo
 }
 
 
