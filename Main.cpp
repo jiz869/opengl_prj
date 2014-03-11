@@ -33,6 +33,10 @@ void initOpenGL();
 void loadAssets();
 void handleInput();
 void renderFrame();
+void renderShadowMap();
+void setupShadowMap();
+void bindShadowMap();
+void unbindShadowMap();
 
 /////////     test      ///////////////////
 static void vertexArrayTest();
@@ -63,7 +67,14 @@ bool show_error = true;
 Shader *simpleShader=0;
 Shader *normalmapShader=0;
 
-GLfloat shadowlight[] = {0.0, 11.0, 10.0, 0.0};
+//shadow map
+VEC3F shadowlight_pos(0.0, 20.0, 30.0 );
+GLfloat shadowModelview[4*4];
+GLfloat shadowProjection[4*4];
+
+GLuint shadowTextureID;
+GLuint fbod;
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 void initEye()
 {
@@ -77,6 +88,13 @@ void initEye()
 
 void initShader()
 {
+    simpleShader = new Shader("simple_shaders/phong");
+    if(!simpleShader->loaded()) {
+        std::cerr << "Simple shader failed to load" << std::endl;
+        std::cerr << simpleShader->errors() << std::endl;
+        exit(-1);
+    }
+
     normalmapShader = new Shader("shaders/phong");
     if(!normalmapShader->loaded()) {
         std::cerr<< "Shader failed to load" << std::endl;
@@ -88,7 +106,7 @@ void initShader()
 
 int main(int argc, char** argv) {
 
-    initOpenGL();
+    //initOpenGL();
     initEye();
     loadAssets();
     initShader();
@@ -96,6 +114,9 @@ int main(int argc, char** argv) {
     // Put your game loop here (i.e., render with OpenGL, update animation)
     while (window.IsOpened()) {
         handleInput();
+        bindShadowMap();
+        renderShadowMap();
+        unbindShadowMap();
         renderFrame();
         window.Display();
     }
@@ -565,8 +586,6 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
 {
     int v=0, f=0;
 
-    //choose shader
-    glUseProgram(normalmapShader->programID());
     
     
     aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
@@ -677,17 +696,24 @@ void renderFrame() {
     // TODO: ADD YOUR RENDERING CODE HERE.  You may use as many .cpp files 
     // in this assignment as you wish.
     //////////////////////////////////////////////////////////////////////////
-    //float tmp;
+    //
 
+    //render shadow map first
+
+    ///// reset opengl //////////
+    initOpenGL();
+
+    /////////////////////////////
+    
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     //set light
     GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
     glLightfv(GL_LIGHT0, GL_POSITION, lpos);
-    glLightfv(GL_LIGHT1, GL_POSITION, shadowlight);
+    //glLightfv(GL_LIGHT1, GL_POSITION, shadowlight);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    
-    glEnable(GL_LIGHT1);    
+    //glEnable(GL_LIGHT1);    
     //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
     glMatrixMode(GL_MODELVIEW);
@@ -714,63 +740,92 @@ void renderFrame() {
     //try various render methods
     
     //renderNode(scene, scene->mRootNode);
+    //choose normalMapshader
+    glUseProgram(normalmapShader->programID());
     renderNode_VertexArray(scene, scene->mRootNode);
     if( show_error == true ) show_error = false;
 }
 
-void renderShadowMap()
+void setupShadowMap()
 {
-    //glGetFloatv (GL_MODELVIEW_MATRIX, m); 
-    //glGetDoublev(GL_PROJECTION_MATRIX, projection);
-    //setup fbo
-    GLuint fbod;
-    glGenFramebuffers(1, &fbod);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbod);
-
     //create texture
-    GLuint shadowTextureID;
     glGenTextures(1, &shadowTextureID);
-    glActiveTexture(GL_TEXTURE3);
+    //glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, shadowTextureID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, window.GetWidth(), window.GetHeight(), 0, GL_DEPTH_COMPONENT,
-            GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, window.GetWidth(), window.GetHeight(), 
+            0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+    //glEnable(GL_TEXTURE_2D);       // do we need enable this?
 
     //attach texture to the framebuffer
+    glGenFramebuffersEXT(1, &fbod);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbod);
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, shadowTextureID, 0);
+
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextureID, 0);
-
     //check the status of the fbo
-    if(GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
+    if(GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT)) {
         std::cerr << "Invalid framebuffer configuration" << std::endl;
         exit(-1);
+    }else{
+        std::cerr << "framebuffer config success"<< std::endl;
     }
+    glDrawBuffer(GL_BACK);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
 
+void bindShadowMap()
+{
+    glPushAttrib(GL_VIEWPORT_BIT);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbod);
+    glDrawBuffer(GL_NONE);
+    glViewport(0, 0, window.GetWidth(), window.GetHeight());
+}
+
+void unbindShadowMap()
+{
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glDrawBuffer(GL_BACK);
+    glPopAttrib();
+}
+
+void renderShadowMap()
+{
     //use simple shader
+    glUseProgram(simpleShader->programID());
 
     //setup light camera
-    //glViewport(...);
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    //glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     //setup matrices
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
-    //glOrtho(l, r, b, t, n, f);
+    glOrtho(-22.0, 22.0, -4.0, 20.0, 14, -14);
 
     glMatrixMode(GL_MODELVIEW);
-    //gluLookAt(...);
+    VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
+    gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
+            -shadowlight_pos.x, -shadowlight_pos.y, -shadowlight_pos.z,
+            up.x, up.y, up.z);
+
+    glRotatef(90, 0.0f, 1.0f, 0.0f);
+
+    //save shadow light matrix
+    glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
+    glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
 
     //draw scene and save matrix
-
-    //unbind fbo
+    //renderNode_VertexArray(scene, scene->mRootNode);
+    std::cerr << "after rendering shadow map" << std::endl;
+    //glUniform4fv to pass in mat4 matrix to shader
 }
 
 
