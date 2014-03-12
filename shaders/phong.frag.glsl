@@ -1,6 +1,7 @@
 // This is a texture sampler.  It lets you sample textures!  The keyword
 // "uniform" means constant - sort of.  The uniform variables are the same
 // for all fragments in an object, but they can change in between objects.
+//test
 uniform sampler2D diffuseMap;
 uniform sampler2D specularMap;
 uniform sampler2D normalMap;

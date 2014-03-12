@@ -88,7 +88,7 @@ void initEye()
 
 void initShader()
 {
-    simpleShader = new Shader("simple_shaders/phong");
+    simpleShader = new Shader("shaders/simple");
     if(!simpleShader->loaded()) {
         std::cerr << "Simple shader failed to load" << std::endl;
         std::cerr << simpleShader->errors() << std::endl;
@@ -145,13 +145,13 @@ void initOpenGL() {
     glClearDepth(1.0f);
     glClearColor(0.15f, 0.15f, 0.15f, 0.15f);
     glEnable(GL_DEPTH_TEST);
+    glViewport(0, 0, window.GetWidth(), window.GetHeight());
 
    	const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(fieldOfView, aspectRatio, 1.0, 1000.0);  /* Znear and Zfar */
 
-    glViewport(0, 0, window.GetWidth(), window.GetHeight());
 }
 
 
@@ -708,11 +708,13 @@ void renderFrame() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     //set light
+#if 0
     GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
     glLightfv(GL_LIGHT0, GL_POSITION, lpos);
-    //glLightfv(GL_LIGHT1, GL_POSITION, shadowlight);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    
+#endif
+
     //glEnable(GL_LIGHT1);    
     //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
@@ -722,6 +724,12 @@ void renderFrame() {
     gluLookAt(eye_pos.x, eye_pos.y, eye_pos.z,
               eye_pos.x+eye_direction.x, eye_pos.y+eye_direction.y, eye_pos.z+eye_direction.z,
               eye_up.x, eye_up.y, eye_up.z );
+
+    //set light
+    GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
+    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);    
 
     // scale the whole asset to fit into our view frustum 
 	//tmp = scene_max.x-scene_min.x;
@@ -811,6 +819,7 @@ void renderShadowMap()
     glOrtho(-22.0, 22.0, -4.0, 20.0, 14, -14);
 
     glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
     VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
     gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
             -shadowlight_pos.x, -shadowlight_pos.y, -shadowlight_pos.z,
@@ -823,7 +832,7 @@ void renderShadowMap()
     glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
 
     //draw scene and save matrix
-    //renderNode_VertexArray(scene, scene->mRootNode);
+    renderNode_VertexArray(scene, scene->mRootNode);
     std::cerr << "after rendering shadow map" << std::endl;
     //glUniform4fv to pass in mat4 matrix to shader
 }
