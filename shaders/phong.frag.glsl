@@ -19,7 +19,7 @@ uniform float alpha;
 varying vec2 texcoord;
 varying vec3 tangentL;  // L in tangent space;
 varying vec3 tangentV;
-varying vec3 depthPosition;
+varying vec4 depthPosition;
 
 void main() {
 
@@ -49,8 +49,9 @@ void main() {
 	vec3 ambient = Ka * gl_LightSource[0].ambient.rgb;
 
     //check depth map 
-    float Zs = texture2D(shadowMap, vec2(depthPosition.xy)).y;
-    gl_FragColor = vec4(Zs, 0.0, 0.0, 1.0);
+    float Zs = texture2D(shadowMap, vec2(depthPosition.xy)).z;
+    //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
+    gl_FragColor = vec4(diffuse + specular, 1.0);
 
     //if( Zs < depthPosition.z ) {
     //    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);

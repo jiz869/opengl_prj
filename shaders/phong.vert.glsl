@@ -16,7 +16,7 @@ varying vec3 normal;
 varying vec3 eyePosition;
 varying vec3 tangentL;
 varying vec3 tangentV;
-varying vec3 depthPosition;
+varying vec4 depthPosition;
 
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -65,7 +65,7 @@ void main() {
                      0.0, 0.5, 0.0, 0.0,
                      0.0, 0.0, 0.5, 0.0,
                      0.5, 0.5, 0.5, 1.0 );
-    vec4 depthTemp = bias * shadowProjection * shadowModelView * vec4(positionIn, 1);
-    depthPosition = depthTemp.xyz;
+    //depthPosition = bias * shadowProjection * shadowModelView * vec4(positionIn, 1);
+    depthPosition = bias * shadowProjection * shadowModelView * vec4(positionIn, 1);
 }
 

@@ -37,6 +37,8 @@ void renderShadowMap();
 void setupShadowMap();
 void bindShadowMap();
 void unbindShadowMap();
+void setupShadowLightMatrix();
+void setupRenderMatrix();
 
 /////////     test      ///////////////////
 static void vertexArrayTest();
@@ -69,13 +71,36 @@ Shader *normalmapShader=0;
 
 //shadow map
 VEC3F shadowlight_pos(0.0, 20.0, 30.0 );
-GLfloat shadowModelview[4*4];
-GLfloat shadowProjection[4*4];
+GLfloat shadowModelview[16];
+GLfloat shadowProjection[16];
 
 GLuint shadowTextureID;
 GLuint fbod;
 
 ////////////////////////////////////////////////////////////////////////////////////////////
+void identitymat4(GLfloat m[])
+{
+    int c=0, r=0;
+    for(c=0; c<4; ++c) {
+        for(r=0; r<4; ++r) {
+            if(r==c) m[c*4+r] = 1.0;
+            else
+                m[c*4+r] = 0.0;
+        }
+    }
+}
+
+void outputmat4(GLfloat m[])
+{
+    int c=0, r=0;
+    for(c=0; c<4; ++c) {
+        for(r=0; r<4; ++r) {
+            std::cout << m[c*3+r] << "  ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 void initEye()
 {
     VEC3F ref_point(0.0f, 0.0f, 0.0f);
@@ -110,6 +135,7 @@ int main(int argc, char** argv) {
     initEye();
     loadAssets();
     initShader();
+    setupShadowMap();
 
     // Put your game loop here (i.e., render with OpenGL, update animation)
     while (window.IsOpened()) {
@@ -145,12 +171,6 @@ void initOpenGL() {
     glClearDepth(1.0f);
     glClearColor(0.15f, 0.15f, 0.15f, 0.15f);
     glEnable(GL_DEPTH_TEST);
-    glViewport(0, 0, window.GetWidth(), window.GetHeight());
-
-   	const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(fieldOfView, aspectRatio, 1.0, 1000.0);  /* Znear and Zfar */
 
 }
 
@@ -689,6 +709,29 @@ void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
 
 }
 
+void setupRenderMatrix()
+{
+   	const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(fieldOfView, aspectRatio, 1.0, 1000.0);  /* Znear and Zfar */
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(eye_pos.x, eye_pos.y, eye_pos.z,
+              eye_pos.x+eye_direction.x, eye_pos.y+eye_direction.y, eye_pos.z+eye_direction.z,
+              eye_up.x, eye_up.y, eye_up.z );
+
+    glRotatef(90, 0.0f, 1.0f, 0.0f);
+    //set light
+    GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
+    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);    
+
+}
+
 void renderFrame() {
     //////////////////////////////////////////////////////////////////////////
     // TODO: ADD YOUR RENDERING CODE HERE.  You may use as many .cpp files 
@@ -716,13 +759,10 @@ void renderFrame() {
     //glEnable(GL_LIGHT1);    
     //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    //gluLookAt(0.f, 0.f,8.f,0.f,0.f,0.0f,0.f,1.f,0.f);
-    gluLookAt(eye_pos.x, eye_pos.y, eye_pos.z,
-              eye_pos.x+eye_direction.x, eye_pos.y+eye_direction.y, eye_pos.z+eye_direction.z,
-              eye_up.x, eye_up.y, eye_up.z );
-
+    glViewport(0, 0, window.GetWidth(), window.GetHeight());
+    //setupRenderMatrix();
+    setupShadowLightMatrix();
+    
     //set light
     GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
     glLightfv(GL_LIGHT0, GL_POSITION, lpos);
@@ -740,7 +780,6 @@ void renderFrame() {
 
     //glRotatef(eye_rot_degreey, eye_roty.x, eye_roty.y, eye_roty.z);
     //glRotatef(eye_rot_degree, eye_rot.x, eye_rot.y, eye_rot.z);
-    glRotatef(90, 0.0f, 1.0f, 0.0f);
     //glTranslatef(-scene_center.x, -scene_center.y, -scene_center.z);    //move center to the origin
     
     //try various render methods
@@ -755,11 +794,13 @@ void renderFrame() {
     glActiveTexture(GL_TEXTURE3);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, shadowTextureID);
+
     //push matrix
-    GLint iModelViewMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowModelView");
-    glUniformMatrix4fv(iModelViewMatrix, 1, GL_FALSE, shadowModelview);
     GLint iProjectionMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowProjection");
     glUniformMatrix4fv(iProjectionMatrix, 1, GL_FALSE, shadowProjection);
+
+    GLint iModelViewMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowModelView");
+    glUniformMatrix4fv(iModelViewMatrix, 1, GL_FALSE, shadowModelview);
 
     renderNode_VertexArray(scene, scene->mRootNode);
     if( show_error == true ) show_error = false;
@@ -814,20 +855,12 @@ void unbindShadowMap()
     glPopAttrib();
 }
 
-void renderShadowMap()
+void setupShadowLightMatrix()
 {
-    //use simple shader
-    glUseProgram(simpleShader->programID());
-
-    //setup light camera
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    //setup matrices
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
-    glOrtho(-22.0, 22.0, -4.0, 20.0, 14, -14);
+    glOrtho(-22.0, 22.0, -15.0, 20.0, 1, 1000);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -838,13 +871,29 @@ void renderShadowMap()
 
     glRotatef(90, 0.0f, 1.0f, 0.0f);
 
-    //save shadow light matrix
-    glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
-    glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
+}
 
-    //draw scene and save matrix
-    renderNode_VertexArray(scene, scene->mRootNode);
-    //glUniform4fv to pass in mat4 matrix to shader
+void renderShadowMap()
+{
+    //use simple shader
+    glUseProgram(simpleShader->programID());
+
+    //setup light camera
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    //setup matrices
+    setupShadowLightMatrix();
+    //setupRenderMatrix();
+
+    GLenum glerr; 
+    glerr = glGetError();
+
+    //save shadow light matrix
+    glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
+    glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
+
+    //renderNode_VertexArray(scene, scene->mRootNode);
 }
 
 
