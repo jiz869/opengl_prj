@@ -16,6 +16,10 @@ varying vec3 normal;
 varying vec3 eyePosition;
 varying vec3 tangentL;
 varying vec3 tangentV;
+varying vec3 depthPosition;
+
+uniform mat4 shadowModelView;
+uniform mat4 shadowProjection;
 
 mat3 Transpose(mat3 inMatrix)
 {
@@ -55,5 +59,13 @@ void main() {
 
 	// Just copy the texture coordinates
 	texcoord = texcoordIn;
+
+    //shadow map
+    mat4 bias = mat4(0.5, 0.0, 0.0, 0.0, 
+                     0.0, 0.5, 0.0, 0.0,
+                     0.0, 0.0, 0.5, 0.0,
+                     0.5, 0.5, 0.5, 1.0 );
+    vec4 depthTemp = bias * shadowProjection * shadowModelView * vec4(positionIn, 1);
+    depthPosition = depthTemp.xyz;
 }
 

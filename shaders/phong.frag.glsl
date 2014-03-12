@@ -5,6 +5,7 @@
 uniform sampler2D diffuseMap;
 uniform sampler2D specularMap;
 uniform sampler2D normalMap;
+uniform sampler2D shadowMap;
 
 // Diffuse, ambient, and specular materials.  These are also uniform.
 uniform vec3 Kd;
@@ -18,6 +19,7 @@ uniform float alpha;
 varying vec2 texcoord;
 varying vec3 tangentL;  // L in tangent space;
 varying vec3 tangentV;
+varying vec3 depthPosition;
 
 void main() {
 
@@ -46,8 +48,15 @@ void main() {
 	// Ambient is easy
 	vec3 ambient = Ka * gl_LightSource[0].ambient.rgb;
 
-	// This actually writes to the frame buffer
-	//gl_FragColor = vec4(diffuse + specular + ambient, 1);
-	gl_FragColor = vec4(diffuse + specular, 1.0);
+    //check depth map 
+    float Zs = texture2D(shadowMap, vec2(depthPosition.xy)).y;
+    gl_FragColor = vec4(Zs, 0.0, 0.0, 1.0);
+
+    //if( Zs < depthPosition.z ) {
+    //    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    //} else {
+        //gl_FragColor = vec4(diffuse + specular + ambient, 1);
+        //gl_FragColor = vec4(diffuse + specular, 1.0);
+    //}
 }
 

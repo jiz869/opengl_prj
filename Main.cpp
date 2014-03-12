@@ -581,12 +581,10 @@ void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
     glPopMatrix();
 }
 
-//--------------------------------------------------------Use glsl customized shader -----------------------------------------------------
+//-------------------------------------------------Use glsl customized shader ----------------------------------------
 void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh)
 {
     int v=0, f=0;
-
-    
     
     aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
     if( mesh->HasNormals() ) {
@@ -750,6 +748,19 @@ void renderFrame() {
     //renderNode(scene, scene->mRootNode);
     //choose normalMapshader
     glUseProgram(normalmapShader->programID());
+
+    //depth texture
+    GLint shadow = glGetUniformLocation(normalmapShader->programID(), "shadowMap");
+    glUniform1i(shadow, 3);
+    glActiveTexture(GL_TEXTURE3);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, shadowTextureID);
+    //push matrix
+    GLint iModelViewMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowModelView");
+    glUniformMatrix4fv(iModelViewMatrix, 1, GL_FALSE, shadowModelview);
+    GLint iProjectionMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowProjection");
+    glUniformMatrix4fv(iProjectionMatrix, 1, GL_FALSE, shadowProjection);
+
     renderNode_VertexArray(scene, scene->mRootNode);
     if( show_error == true ) show_error = false;
 }
@@ -833,7 +844,6 @@ void renderShadowMap()
 
     //draw scene and save matrix
     renderNode_VertexArray(scene, scene->mRootNode);
-    std::cerr << "after rendering shadow map" << std::endl;
     //glUniform4fv to pass in mat4 matrix to shader
 }
 
