@@ -4,6 +4,7 @@
 #include "Framework.h"
 #include "Shader.h"
 #include "VEC3.h"
+#include "DepthRenderTarget.h"
 
 #define MODEL_PATH "models/cathedral.3ds"
 //#define MODEL_PATH "models/dragon.dae"
@@ -33,12 +34,20 @@ void initOpenGL();
 void loadAssets();
 void handleInput();
 void renderFrame();
+
+//shadow map
 void renderShadowMap();
 void setupShadowMap();
 void bindShadowMap();
 void unbindShadowMap();
+//shadow map using DepthRenderTarget
+void setupDepthRenderTarget();
+
 void setupShadowLightMatrix();
 void setupRenderMatrix();
+
+//debug
+void displayShadowTexture();
 
 /////////     test      ///////////////////
 static void vertexArrayTest();
@@ -68,6 +77,7 @@ bool show_error = true;
 
 Shader *simpleShader=0;
 Shader *normalmapShader=0;
+Shader *debugShader=0;
 
 //shadow map
 VEC3F shadowlight_pos(0, 20, 20 );
@@ -76,6 +86,8 @@ GLfloat shadowProjection[16];
 
 GLuint shadowTextureID;
 GLuint fbod;
+
+DepthRenderTarget *depthRender=0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 void identitymat4(GLfloat m[])
@@ -122,11 +134,17 @@ void initShader()
 
     normalmapShader = new Shader("shaders/phong");
     if(!normalmapShader->loaded()) {
-        std::cerr<< "Shader failed to load" << std::endl;
+        std::cerr<< "Normal shader failed to load" << std::endl;
         std::cerr << normalmapShader->errors() << std::endl;
         exit(-1);
     }
 
+    debugShader = new Shader("shaders/debug");
+    if(!debugShader->loaded()) {
+        std::cerr<< "Debug shader failed to load" << std::endl;
+        std::cerr << debugShader->errors() << std::endl;
+        exit(-1);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -135,15 +153,20 @@ int main(int argc, char** argv) {
     initEye();
     loadAssets();
     initShader();
-    setupShadowMap();
+    //setupShadowMap();
+    setupDepthRenderTarget();
 
     // Put your game loop here (i.e., render with OpenGL, update animation)
     while (window.IsOpened()) {
         handleInput();
-        bindShadowMap();
+        //bindShadowMap();
+        depthRender->bind();
         renderShadowMap();
-        unbindShadowMap();
-        renderFrame();
+        depthRender->unbind();
+        //unbindShadowMap();
+        
+        displayShadowTexture();
+        //renderFrame();
         window.Display();
     }
 
@@ -796,7 +819,10 @@ void renderFrame() {
     glUniform1i(shadow, 3);
     glActiveTexture(GL_TEXTURE3);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, shadowTextureID);
+
+    //glBindTexture(GL_TEXTURE_2D, shadowTextureID);
+    //depthRender
+    glBindTexture(GL_TEXTURE_2D, depthRender->textureID());
 
     //push matrix
     GLint iProjectionMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowProjection");
@@ -821,7 +847,7 @@ void setupShadowMap()
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, window.GetWidth(), window.GetHeight(), 
             0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
-    glEnable(GL_TEXTURE_2D);       // do we need enable this?
+    //glEnable(GL_TEXTURE_2D);       // do we need enable this?
 
     //attach texture to the framebuffer
     glGenFramebuffersEXT(1, &fbod);
@@ -948,6 +974,7 @@ void renderShadowMap()
 {
     //use simple shader
     glUseProgram(simpleShader->programID());
+    //glUseProgram(0);
 
     //setup light camera
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -960,17 +987,57 @@ void renderShadowMap()
     GLenum glerr; 
     glerr = glGetError();
 
-    //save shadow light matrix
-    glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
-    glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
 
     //glCullFace(GL_FRONT);
     renderNode_VertexArray_simple(scene, scene->mRootNode);
+
+    //save shadow light matrix
+    glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
+    glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
 
     //restore state
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     //glCullFace(GL_BACK);
 }
 
+void displayShadowTexture()
+{
+     int w = window.GetWidth();
+     int h = window.GetHeight();
 
+     glClearDepth(1.0f);
+     glClearColor(0.15f, 0.15f, 0.15f, 0.15f);
+
+     glViewport(0, 0, w, h);
+     glUseProgram(debugShader->programID());
+
+     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	 glMatrixMode(GL_PROJECTION);
+	 glLoadIdentity();
+	 glOrtho(-w/2,w/2,-h/2,h/2,-1000,1000);
+
+	 glMatrixMode(GL_MODELVIEW);
+	 glLoadIdentity();
+
+     GLint shadow = glGetUniformLocation(normalmapShader->programID(), "shadowMap");
+     glUniform1i(shadow, 0);
+     glActiveTexture(GL_TEXTURE0);
+     glBindTexture( GL_TEXTURE_2D, depthRender->textureID() );
+     glEnable(GL_TEXTURE_2D);
+
+	 glBegin(GL_QUADS);
+
+     glTexCoord2d(0,0); glVertex3f(0,0,0);
+     glTexCoord2d(0, 1); glVertex3f(0, h/2, 0);
+     glTexCoord2d(1, 1); glVertex3f(w/2, h/2, 0);
+     glTexCoord2d(1, 0); glVertex3f(w/2, 0, 0);
+
+	 glEnd();
+}
+
+void setupDepthRenderTarget()
+{
+    depthRender = new DepthRenderTarget( window.GetWidth(), window.GetHeight() ); 
+}
 
