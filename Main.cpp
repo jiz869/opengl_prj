@@ -70,7 +70,7 @@ Shader *simpleShader=0;
 Shader *normalmapShader=0;
 
 //shadow map
-VEC3F shadowlight_pos(0.0, 20.0, 30.0 );
+VEC3F shadowlight_pos(0, 20, 20 );
 GLfloat shadowModelview[16];
 GLfloat shadowProjection[16];
 
@@ -356,6 +356,14 @@ void handleInput() {
                 VEC3F r = eye_direction^eye_up;
                 r.normalize();
                 eye_pos += r*0.5f;
+            }else if( evt.Key.Code == sf::Key::Up ) {
+                shadowlight_pos.y += 0.5;
+            }else if( evt.Key.Code == sf::Key::Down ) {
+                shadowlight_pos.y -= 0.5;
+            }else if( evt.Key.Code == sf::Key::Left ) {
+                shadowlight_pos.x -= 0.5;
+            }else if( evt.Key.Code == sf::Key::Right ) {
+                shadowlight_pos.x += 0.5;
             }
             break;
         case sf::Event::MouseMoved:
@@ -716,6 +724,7 @@ void setupRenderMatrix()
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(fieldOfView, aspectRatio, 1.0, 1000.0);  /* Znear and Zfar */
+    //glOrtho(-22.0, 22.0, -15.0, 20.0, 1, 1000);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -760,15 +769,9 @@ void renderFrame() {
     //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
     glViewport(0, 0, window.GetWidth(), window.GetHeight());
-    //setupRenderMatrix();
-    setupShadowLightMatrix();
+    setupRenderMatrix();
+    //setupShadowLightMatrix();
     
-    //set light
-    GLfloat lpos[] = {0.0, 11.0, 0.0, 1.0};
-    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);    
-
     // scale the whole asset to fit into our view frustum 
 	//tmp = scene_max.x-scene_min.x;
 	//tmp = aisgl_max(scene_max.y - scene_min.y,tmp);
@@ -810,7 +813,6 @@ void setupShadowMap()
 {
     //create texture
     glGenTextures(1, &shadowTextureID);
-    //glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, shadowTextureID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -819,7 +821,7 @@ void setupShadowMap()
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, window.GetWidth(), window.GetHeight(), 
             0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
-    //glEnable(GL_TEXTURE_2D);       // do we need enable this?
+    glEnable(GL_TEXTURE_2D);       // do we need enable this?
 
     //attach texture to the framebuffer
     glGenFramebuffersEXT(1, &fbod);
@@ -860,17 +862,86 @@ void setupShadowLightMatrix()
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
-    glOrtho(-22.0, 22.0, -15.0, 20.0, 1, 1000);
+    glOrtho(-15.0, 15.0, -8.0, 30.0, 1, 100);
+   	//const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
+	//gluPerspective(fieldOfView, aspectRatio, 1.0, .0);  /* Znear and Zfar */
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
+    //VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
+    VEC3F up = VEC3F(1.0, 0.0, 0.0) ^ (VEC3F(0.0, 1.5, 8) - shadowlight_pos);
     gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
-            -shadowlight_pos.x, -shadowlight_pos.y, -shadowlight_pos.z,
+            0.0, 1.5, 8,
             up.x, up.y, up.z);
+
+    //gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
+    //        -shadowlight_pos.x, -shadowlight_pos.y, -shadowlight_pos.z,
+    //        up.x, up.y, up.z);
+
+    //gluLookAt(eye_pos.x, eye_pos.y, eye_pos.z,
+    //          eye_pos.x+eye_direction.x, eye_pos.y+eye_direction.y, eye_pos.z+eye_direction.z,
+    //          eye_up.x, eye_up.y, eye_up.z );
 
     glRotatef(90, 0.0f, 1.0f, 0.0f);
 
+}
+
+
+void renderMesh_glsl_simple(const struct aiScene *sc, const struct aiMesh *mesh)
+{
+    int v=0, f=0;
+    
+    aiMaterial *material = sc->mMaterials[ mesh->mMaterialIndex ];
+
+    //prepare vertices buffer
+    int num_idx = mesh->mNumFaces * 3;
+    unsigned int *index = (unsigned int*)malloc( num_idx * sizeof(unsigned int) );
+    int vi=0;
+
+    //create index array
+    for(vi=0, f=0; f < mesh->mNumFaces; ++f) {
+        const struct aiFace *face = &mesh->mFaces[f];
+        for(v=0; v < face->mNumIndices; ++v ) {
+            index[vi] = face->mIndices[v];
+            vi++;
+        }
+    }
+
+    //set vertex positions
+    GLint position = glGetAttribLocation(normalmapShader->programID(), "positionIn");
+    glEnableVertexAttribArray(position);
+    glVertexAttribPointer(position, 3, GL_FLOAT, 0, sizeof(aiVector3D), mesh->mVertices);
+
+    glDrawElements(GL_TRIANGLES, mesh->mNumFaces*3, GL_UNSIGNED_INT, &index[0]);
+
+    free(index);
+
+}
+
+void renderNode_VertexArray_simple(const struct aiScene *sc, const struct aiNode *nd)
+{
+    struct aiMatrix4x4 m = nd->mTransformation;
+    unsigned int i;
+
+    //update transform
+    aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
+    glPushMatrix();
+    glMultMatrixf((float*)&m);
+
+    //draw meshes in this node
+    for(i=0; i < nd->mNumMeshes; ++i) {
+        const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
+        //renderMesh_VertexArray(sc, mesh);
+        renderMesh_glsl_simple(sc, mesh);
+    }
+
+    //draw all children
+    unsigned int n;
+    for(n=0; n < nd->mNumChildren; ++n) {
+        renderNode_VertexArray_simple( sc, nd->mChildren[n]); 
+    }
+
+    glPopMatrix();
 }
 
 void renderShadowMap()
@@ -880,7 +951,7 @@ void renderShadowMap()
 
     //setup light camera
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     //setup matrices
     setupShadowLightMatrix();
@@ -893,7 +964,12 @@ void renderShadowMap()
     glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
     glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
 
-    //renderNode_VertexArray(scene, scene->mRootNode);
+    //glCullFace(GL_FRONT);
+    renderNode_VertexArray_simple(scene, scene->mRootNode);
+
+    //restore state
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    //glCullFace(GL_BACK);
 }
 
 

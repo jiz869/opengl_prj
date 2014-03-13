@@ -35,7 +35,8 @@ void main() {
 	// Calculate the diffuse color coefficient, and sample the diffuse texture
 	float Rd = max(0.0, dot(tangentL, Tn));
 	vec3 Td = texture2D(diffuseMap, texcoord).rgb;
-	vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
+	//vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
+	vec3 diffuse = Kd * Td * gl_LightSource[0].diffuse.rgb;
 	//vec3 diffuse = Rd * Kd * Td ;
 	
 	// Calculate the specular coefficient
@@ -49,15 +50,20 @@ void main() {
 	vec3 ambient = Ka * gl_LightSource[0].ambient.rgb;
 
     //check depth map 
-    float Zs = texture2D(shadowMap, vec2(depthPosition.xy)).z;
+    vec2 tex_shadow = vec2(depthPosition.x / depthPosition.w, depthPosition.y / depthPosition.w);
+    float Zs = texture2D(shadowMap, tex_shadow).z;
     //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
-    gl_FragColor = vec4(diffuse + specular, 1.0);
+    float depth = depthPosition.z / depthPosition.w;
+    //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
 
-    //if( Zs < depthPosition.z ) {
-    //    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    //} else {
+    if( Zs < depth ) {
+        //gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        //gl_FragColor = vec4((diffuse + specular) * 0.5, 1.0);
+        gl_FragColor = vec4((diffuse ) * 0.5, 1.0);
+    } else {
         //gl_FragColor = vec4(diffuse + specular + ambient, 1);
         //gl_FragColor = vec4(diffuse + specular, 1.0);
-    //}
+        gl_FragColor = vec4(diffuse + specular, 1.0);
+    }
 }
 
