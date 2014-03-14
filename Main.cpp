@@ -1043,7 +1043,8 @@ void renderShadowMap()
     //save shadow light matrix
     glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
     glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
-
+    
+    glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     renderNode_VertexArray_simple(scene, scene->mRootNode);
 
