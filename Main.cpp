@@ -81,7 +81,7 @@ Shader *normalmapShader=0;
 Shader *debugShader=0;
 
 //shadow map
-VEC3F shadowlight_pos(0, 2, 100);
+VEC3F shadowlight_pos(0, 5, 30);
 GLfloat shadowModelview[16];
 GLfloat shadowProjection[16];
 
@@ -938,7 +938,7 @@ void setupShadowLightMatrix()
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
-    glOrtho(-15.0, 15.0, -8.0, 30.0, -1, 100);
+    glOrtho(-15.0, 15.0, -8.0, 30.0, 1, 50);
    	//const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
 	//gluPerspective(fieldOfView, aspectRatio, 1.0, .0);  /* Znear and Zfar */
 
@@ -1044,12 +1044,12 @@ void renderShadowMap()
     glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
     glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
 
-    //glCullFace(GL_FRONT);
+    glCullFace(GL_FRONT);
     renderNode_VertexArray_simple(scene, scene->mRootNode);
 
     //restore state
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    //glCullFace(GL_BACK);
+    glCullFace(GL_BACK);
 }
 
 void displayShadowTexture()
@@ -1089,6 +1089,7 @@ void displayShadowTexture()
 
 void setupDepthRenderTarget()
 {
-    depthRender = new DepthRenderTarget( window.GetWidth(), window.GetHeight() ); 
+    //depthRender = new DepthRenderTarget( window.GetWidth(), window.GetHeight() ); 
+    depthRender = new DepthRenderTarget( 1600, 1200  ); 
 }
 

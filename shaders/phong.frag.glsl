@@ -54,12 +54,13 @@ void main() {
     float Zs = texture2D(shadowMap, tex_shadow).z;
     //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
     float depth = depthPosition.z / depthPosition.w;
+    depth -= 0.005;
     //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
 
     //gl_FragColor = vec4(Zs, 0.0, 0.0, 1.0);
     //gl_FragColor = vec4(diffuse, 1.0);
 
-    if( Zs - 0.005< depth ) {
+    if( depthPosition.w > 0.0 && Zs < depth ) {
         gl_FragColor = vec4((diffuse ) * 0.5, 1.0);
     } else {
         gl_FragColor = vec4(diffuse, 1.0);
