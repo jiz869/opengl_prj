@@ -5,7 +5,7 @@
 uniform sampler2D diffuseMap;
 uniform sampler2D specularMap;
 uniform sampler2D normalMap;
-uniform sampler2D shadowMap;
+uniform sampler2D depthMap;
 
 // Diffuse, ambient, and specular materials.  These are also uniform.
 uniform vec3 Kd;
@@ -22,8 +22,9 @@ varying vec3 tangentV;
 varying vec4 depthPosition;
 
 void main() {
-    vec3 depth = texture2D(shadowMap, gl_TexCoord[0].st).xyz;
+    //vec4 depth = texture2D(depthMap, gl_TexCoord[0].st);
+    vec4 depth = texture2D(depthMap, vec2(0.01, 0.05));
 
-    gl_FragColor = vec4(depth.y, 0, 0, 1.0);
+    gl_FragColor = vec4(depth.z, 0, 0, 1.0);
 }
 

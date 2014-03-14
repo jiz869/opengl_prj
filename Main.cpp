@@ -53,6 +53,7 @@ void displayShadowTexture();
 static void vertexArrayTest();
 /////////     test      ///////////////////
 static void renderMesh_glsl(const struct aiScene *sc, const struct aiMesh *mesh);
+void renderNode_glsl(const struct aiScene *sc, const struct aiNode *nd, aiMatrix4x4 parentM);
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //static GLfloat eye_pos[3], eye_direction[3];
@@ -80,9 +81,12 @@ Shader *normalmapShader=0;
 Shader *debugShader=0;
 
 //shadow map
-VEC3F shadowlight_pos(0, 20, 20 );
+VEC3F shadowlight_pos(0, 2, 100);
 GLfloat shadowModelview[16];
 GLfloat shadowProjection[16];
+
+GLfloat normalModelview[16];
+GLfloat normalProjection[16];
 
 GLuint shadowTextureID;
 GLuint fbod;
@@ -165,8 +169,8 @@ int main(int argc, char** argv) {
         depthRender->unbind();
         //unbindShadowMap();
         
-        displayShadowTexture();
-        //renderFrame();
+        //displayShadowTexture();
+        renderFrame();
         window.Display();
     }
 
@@ -384,9 +388,9 @@ void handleInput() {
             }else if( evt.Key.Code == sf::Key::Down ) {
                 shadowlight_pos.y -= 0.5;
             }else if( evt.Key.Code == sf::Key::Left ) {
-                shadowlight_pos.x -= 0.5;
+                shadowlight_pos.z -= 0.5;
             }else if( evt.Key.Code == sf::Key::Right ) {
-                shadowlight_pos.x += 0.5;
+                shadowlight_pos.z += 0.5;
             }
             break;
         case sf::Event::MouseMoved:
@@ -626,7 +630,42 @@ void renderNode_VertexArray(const struct aiScene *sc, const struct aiNode *nd)
     //draw all children
     unsigned int n;
     for(n=0; n < nd->mNumChildren; ++n) {
-        renderNode_VertexArray( sc, nd->mChildren[n]); 
+        renderNode_VertexArray( sc, nd->mChildren[n] ); 
+    }
+
+    glPopMatrix();
+}
+
+void renderNode_glsl(const struct aiScene *sc, const struct aiNode *nd, aiMatrix4x4 parentM)
+{
+    struct aiMatrix4x4 m = nd->mTransformation;
+    struct aiMatrix4x4 meshM;
+    unsigned int i;
+
+    //compute parentM and meshM
+    parentM *= m;
+    meshM = parentM;
+    aiTransposeMatrix4(&meshM);
+
+    //update transform
+    aiTransposeMatrix4(&m); //assimp matrix is row major. Need transpose for gl
+    glPushMatrix();
+    glMultMatrixf((float*)&m);
+
+    //pass meshMatrix 
+    GLint meshMatrixId = glGetUniformLocation(normalmapShader->programID(), "meshMatrix");
+    glUniformMatrix4fv(meshMatrixId, 1, GL_FALSE, (float*)&meshM);
+
+    //draw meshes in this node
+    for(i=0; i < nd->mNumMeshes; ++i) {
+        const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
+        renderMesh_glsl(sc, mesh);
+    }
+
+    //draw all children
+    unsigned int n;
+    for(n=0; n < nd->mNumChildren; ++n) {
+        renderNode_glsl( sc, nd->mChildren[n], parentM); 
     }
 
     glPopMatrix();
@@ -824,6 +863,8 @@ void renderFrame() {
     //depthRender
     glBindTexture(GL_TEXTURE_2D, depthRender->textureID());
 
+    glGetFloatv(GL_MODELVIEW_MATRIX, normalModelview); 
+
     //push matrix
     GLint iProjectionMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowProjection");
     glUniformMatrix4fv(iProjectionMatrix, 1, GL_FALSE, shadowProjection);
@@ -831,7 +872,16 @@ void renderFrame() {
     GLint iModelViewMatrix = glGetUniformLocation(normalmapShader->programID(), "shadowModelView");
     glUniformMatrix4fv(iModelViewMatrix, 1, GL_FALSE, shadowModelview);
 
-    renderNode_VertexArray(scene, scene->mRootNode);
+    glGetFloatv(GL_PROJECTION_MATRIX, normalProjection);
+
+    //renderNode_VertexArray(scene, scene->mRootNode);
+    struct aiMatrix4x4 rootMeshM(1.0, 0.0, 0.0, 0.0,
+                                 0.0, 1.0, 0.0, 0.0,
+                                 0.0, 0.0, 1.0, 0.0,
+                                 0.0, 0.0, 0.0, 1.0);
+                
+    renderNode_glsl(scene, scene->mRootNode, rootMeshM);
+
     if( show_error == true ) show_error = false;
 }
 
@@ -888,16 +938,16 @@ void setupShadowLightMatrix()
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     //bounding box: (xyz) (-21, -3, -13) - (21, 19, 13)
-    glOrtho(-15.0, 15.0, -8.0, 30.0, 1, 100);
+    glOrtho(-15.0, 15.0, -8.0, 30.0, -1, 100);
    	//const double aspectRatio = ((float) window.GetWidth() / (float)window.GetHeight()), fieldOfView = 45.0;
 	//gluPerspective(fieldOfView, aspectRatio, 1.0, .0);  /* Znear and Zfar */
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    //VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
-    VEC3F up = VEC3F(1.0, 0.0, 0.0) ^ (VEC3F(0.0, 1.5, 8) - shadowlight_pos);
+    VEC3F up = shadowlight_pos ^ VEC3F(1.0, 0.0, 0.0);
+    //VEC3F up = VEC3F(1.0, 0.0, 0.0) ^ (VEC3F(0.0, 1.5, 8) - shadowlight_pos);
     gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
-            0.0, 1.5, 8,
+            0.0, 0.0, 0.0,
             up.x, up.y, up.z);
 
     //gluLookAt(shadowlight_pos.x, shadowlight_pos.y, shadowlight_pos.z, 
@@ -954,6 +1004,10 @@ void renderNode_VertexArray_simple(const struct aiScene *sc, const struct aiNode
     glPushMatrix();
     glMultMatrixf((float*)&m);
 
+    //pass meshMatrix 
+    //GLint meshMatrixId = glGetUniformLocation(simpleShader->programID(), "meshMatrix");
+    //glUniformMatrix4fv(meshMatrixId, 1, GL_FALSE, (float*)&m);
+
     //draw meshes in this node
     for(i=0; i < nd->mNumMeshes; ++i) {
         const struct aiMesh *mesh = sc->mMeshes[ nd->mMeshes[i] ];
@@ -974,7 +1028,6 @@ void renderShadowMap()
 {
     //use simple shader
     glUseProgram(simpleShader->programID());
-    //glUseProgram(0);
 
     //setup light camera
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -987,13 +1040,12 @@ void renderShadowMap()
     GLenum glerr; 
     glerr = glGetError();
 
-
-    //glCullFace(GL_FRONT);
-    renderNode_VertexArray_simple(scene, scene->mRootNode);
-
     //save shadow light matrix
     glGetFloatv(GL_PROJECTION_MATRIX, shadowProjection);
     glGetFloatv(GL_MODELVIEW_MATRIX, shadowModelview); 
+
+    //glCullFace(GL_FRONT);
+    renderNode_VertexArray_simple(scene, scene->mRootNode);
 
     //restore state
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1020,18 +1072,17 @@ void displayShadowTexture()
 	 glMatrixMode(GL_MODELVIEW);
 	 glLoadIdentity();
 
-     GLint shadow = glGetUniformLocation(normalmapShader->programID(), "shadowMap");
-     glUniform1i(shadow, 0);
      glActiveTexture(GL_TEXTURE0);
+     GLint depthMapId = glGetUniformLocation(debugShader->programID(), "depthMap");
+     glUniform1i(depthMapId, 0);
      glBindTexture( GL_TEXTURE_2D, depthRender->textureID() );
-     glEnable(GL_TEXTURE_2D);
 
 	 glBegin(GL_QUADS);
 
-     glTexCoord2d(0,0); glVertex3f(0,0,0);
-     glTexCoord2d(0, 1); glVertex3f(0, h/2, 0);
-     glTexCoord2d(1, 1); glVertex3f(w/2, h/2, 0);
-     glTexCoord2d(1, 0); glVertex3f(w/2, 0, 0);
+     glTexCoord2f(0,0); glVertex3f(0,0,0);
+     glTexCoord2f(0, 1); glVertex3f(0, h/2, 0);
+     glTexCoord2f(1, 1); glVertex3f(w/2, h/2, 0);
+     glTexCoord2f(1, 0); glVertex3f(w/2, 0, 0);
 
 	 glEnd();
 }

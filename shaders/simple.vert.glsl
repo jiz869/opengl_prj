@@ -8,6 +8,7 @@ attribute vec3 normalIn;
 attribute vec3 tangentIn;
 attribute vec3 bitangentIn;
 
+//uniform mat4 meshMatrix;
 // These are the "output" values of our shader.  OpenGL will interpolate
 // these for us (good riddance project 2!)
 

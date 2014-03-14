@@ -56,14 +56,15 @@ void main() {
     float depth = depthPosition.z / depthPosition.w;
     //gl_FragColor = vec4(depthPosition.z / depthPosition.w, 0.0, 0.0, 1.0);
 
+    //gl_FragColor = vec4(Zs, 0.0, 0.0, 1.0);
     //gl_FragColor = vec4(diffuse, 1.0);
 
-    if( depthPosition.w > 0.0 && Zs - 0.0001 < depth ) {
-        //gl_FragColor = vec4((diffuse + specular) * 0.5, 1.0);
+    if( Zs - 0.005< depth ) {
         gl_FragColor = vec4((diffuse ) * 0.5, 1.0);
     } else {
-        //gl_FragColor = vec4(diffuse + specular, 1.0);
         gl_FragColor = vec4(diffuse, 1.0);
     }
+    
+    //gl_FragColor = vec4((diffuse + specular) * 0.5, 1.0);
 }
 
