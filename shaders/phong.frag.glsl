@@ -35,8 +35,8 @@ void main() {
 	// Calculate the diffuse color coefficient, and sample the diffuse texture
 	float Rd = max(0.0, dot(tangentL, Tn));
 	vec3 Td = texture2D(diffuseMap, texcoord).rgb;
-	//vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
-	vec3 diffuse = Kd * Td * gl_LightSource[0].diffuse.rgb;
+	vec3 diffuse = Rd * Kd * Td * gl_LightSource[0].diffuse.rgb;
+	//vec3 diffuse = Kd * Td * gl_LightSource[0].diffuse.rgb;
 	//vec3 diffuse = Rd * Kd * Td ;
 	
 	// Calculate the specular coefficient
@@ -61,9 +61,9 @@ void main() {
     //gl_FragColor = vec4(diffuse, 1.0);
 
     if( depthPosition.w > 0.0 && Zs < depth ) {
-        gl_FragColor = vec4((diffuse ) * 0.5, 1.0);
+        gl_FragColor = vec4((diffuse + specular ) * 0.5, 1.0);
     } else {
-        gl_FragColor = vec4(diffuse, 1.0);
+        gl_FragColor = vec4(diffuse + specular, 1.0);
     }
     
     //gl_FragColor = vec4((diffuse + specular) * 0.5, 1.0);

@@ -1091,6 +1091,6 @@ void displayShadowTexture()
 void setupDepthRenderTarget()
 {
     //depthRender = new DepthRenderTarget( window.GetWidth(), window.GetHeight() ); 
-    depthRender = new DepthRenderTarget( 1600, 1200  ); 
+    depthRender = new DepthRenderTarget( 3200, 2400  ); 
 }
 
